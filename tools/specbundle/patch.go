@@ -93,6 +93,54 @@ var patches = []patch{
 	},
 	{
 		file: rootName,
+		why:  "TypeVector3i declares integer x/y/z, but a live server sends floats such as -272.96875",
+		apply: func(doc *yaml.Node) bool {
+			// Observed against a real server with a player online: decoding a
+			// player into the generated type fails outright with
+			// "cannot unmarshal number -272.96875 into ... of type int".
+			// The name says "3i" but the data is not integral.
+			schemas := mapGet(mapGet(doc, "components"), "schemas")
+			props := mapGet(mapGet(schemas, "TypeVector3i"), "properties")
+			if props == nil {
+				return false
+			}
+			changed := false
+			for _, axis := range []string{"x", "y", "z"} {
+				field := mapGet(props, axis)
+				if field == nil {
+					continue
+				}
+				if t := mapGet(field, "type"); t != nil && t.Value == "integer" {
+					t.Value = "number"
+					changed = true
+				}
+			}
+			return changed
+		},
+	},
+	{
+		file: "Player.openapi.yaml",
+		why:  "PlayerElement.level is typed null, but a live server sends an integer",
+		apply: func(doc *yaml.Node) bool {
+			// Also observed only with a player online. totalPlayTimeSeconds and
+			// lastOnline really are always null on this build, so they are left
+			// alone; level is not.
+			schemas := mapGet(mapGet(doc, "components"), "schemas")
+			props := mapGet(mapGet(schemas, "PlayerElement"), "properties")
+			level := mapGet(props, "level")
+			if level == nil {
+				return false
+			}
+			t := mapGet(level, "type")
+			if t == nil || t.Value != "null" {
+				return false
+			}
+			t.Value = "integer"
+			return true
+		},
+	},
+	{
+		file: rootName,
 		why:  "TypeUserIdString pattern escapes '[', so it can never match any input",
 		apply: func(doc *yaml.Node) bool {
 			const broken = "^\\[a-zA-Z]+_[\\w]+$"

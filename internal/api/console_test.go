@@ -16,9 +16,15 @@ import (
 
 // fakeGame records what was executed and returns a scripted outcome.
 type fakeGame struct {
-	executed []string
-	result   sdtd.CommandResult
-	err      error
+	executed   []string
+	result     sdtd.CommandResult
+	err        error
+	players    []sdtd.Player
+	playersErr error
+}
+
+func (f *fakeGame) Players(context.Context) ([]sdtd.Player, error) {
+	return f.players, f.playersErr
 }
 
 func (f *fakeGame) Execute(_ context.Context, command string) (sdtd.CommandResult, error) {

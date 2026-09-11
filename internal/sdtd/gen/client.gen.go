@@ -756,7 +756,7 @@ type PlayerPlayerElement struct {
 		Zombies int `json:"zombies"`
 	} `json:"kills"`
 	LastOnline           interface{}               `json:"lastOnline"`
-	Level                interface{}               `json:"level"`
+	Level                int                       `json:"level"`
 	Name                 string                    `json:"name"`
 	Online               PlayerPlayerElementOnline `json:"online"`
 	Ping                 *int                      `json:"ping"`
@@ -1004,13 +1004,13 @@ type TypeUserIdString = string
 // TypeVector3i 3D vector in full blocks
 type TypeVector3i struct {
 	// X Example: -123
-	X int `json:"x"`
+	X float32 `json:"x"`
 
 	// Y Example: 61
-	Y int `json:"y"`
+	Y float32 `json:"y"`
 
 	// Z Example: 734
-	Z int `json:"z"`
+	Z float32 `json:"z"`
 }
 
 // UserPermissionsGroupPermissionElement defines model for UserPermissions_GroupPermissionElement.

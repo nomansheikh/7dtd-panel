@@ -11,7 +11,7 @@ type Filter = "all" | "chat" | "players" | "problems";
 const FILTERS: { value: Filter; label: string }[] = [
   { value: "all", label: "Everything" },
   { value: "chat", label: "Chat" },
-  { value: "players", label: "Joins and leaves" },
+  { value: "players", label: "Joins, leaves and deaths" },
   { value: "problems", label: "Warnings and errors" },
 ];
 
@@ -20,7 +20,7 @@ function matches(event: PanelEvent, filter: Filter): boolean {
     case "chat":
       return event.kind === "chat";
     case "players":
-      return event.kind === "join" || event.kind === "leave";
+      return event.kind === "join" || event.kind === "leave" || event.kind === "death";
     case "problems":
       return (
         event.severity === "Error" ||
@@ -37,6 +37,7 @@ const KIND_BADGE: Partial<Record<EventKind, string>> = {
   chat: "chat",
   join: "joined",
   leave: "left",
+  death: "died",
   status: "panel",
 };
 

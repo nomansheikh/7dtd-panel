@@ -92,6 +92,20 @@ func (s *Server) Routes() *http.ServeMux {
 	}
 
 	scoped("GET /api/servers/{server}/dashboard", s.handleDashboard)
+	scoped("GET /api/servers/{server}/players", s.handlePlayers)
+
+	// Player actions. Each names its target by entity id, because a display
+	// name is chosen by the player and an integer cannot carry a payload.
+	scoped("POST /api/servers/{server}/players/{entityId}/teleport", s.handleTeleport)
+	scoped("POST /api/servers/{server}/players/{entityId}/give", s.handleGiveItem)
+	scoped("POST /api/servers/{server}/players/{entityId}/kill", s.handleKillPlayer)
+	scoped("POST /api/servers/{server}/players/{entityId}/kick", s.handleKick)
+	scoped("POST /api/servers/{server}/players/{entityId}/buff", s.handleBuff)
+	scoped("POST /api/servers/{server}/players/{entityId}/xp", s.handleGiveXP)
+	// Ban takes a platform id, not an entity id: it is the one action that has
+	// to work for someone who has already left.
+	scoped("POST /api/servers/{server}/players/ban", s.handleBan)
+	scoped("POST /api/servers/{server}/players/unban", s.handleUnban)
 	scoped("GET /api/servers/{server}/events", s.handleEvents)
 
 	scoped("GET /api/servers/{server}/console/commands", s.handleConsoleCommands)

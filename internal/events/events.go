@@ -29,6 +29,8 @@ const (
 	// KindJoin and KindLeave mark players entering and leaving.
 	KindJoin  Kind = "join"
 	KindLeave Kind = "leave"
+	// KindDeath is a player dying, which the game also announces over GMSG.
+	KindDeath Kind = "death"
 	// KindStatus is emitted by the panel itself, not the game server.
 	KindStatus Kind = "status"
 )
@@ -171,17 +173,24 @@ func (h *Hub) Stats() (subscribers, buffered int, dropped int64) {
 }
 
 // Chat and connection notices arrive as ordinary log lines; the server has no
-// separate event type for them. These patterns come from reading the game's log
-// output and are the panel's best guess.
+// separate event type for them, and no SSE event name other than "log" exists.
 //
-// UNVERIFIED: no player has ever joined the server this was developed against,
-// so none of these have been matched against a real line. They are written to
-// fail safe: anything unrecognised stays an ordinary log entry rather than
-// being mislabelled.
+// Verified against a live server with a player online. The real lines are:
+//
+//	Chat (from 'Steam_7656119...', entity id '173', to 'Global'): 'nullish': hello
+//	GMSG: Player 'nullish' joined the game
+//	GMSG: Player 'nullish' died
+//
+// The leave variant is inferred from the same GMSG shape and has not yet been
+// seen on a live server.
+//
+// They remain written to fail safe: anything unrecognised stays an ordinary log
+// entry rather than being mislabelled.
 var (
-	chatRe = regexp.MustCompile(`^Chat\s*\(from\s*'[^']*',\s*entity id\s*'(-?\d+)',\s*to\s*'([^']*)'\):\s*'([^']*)':\s*(.*)$`)
-	joinRe = regexp.MustCompile(`^GMSG:\s*Player\s*'([^']*)'\s+joined`)
-	partRe = regexp.MustCompile(`^GMSG:\s*Player\s*'([^']*)'\s+left`)
+	chatRe  = regexp.MustCompile(`^Chat\s*\(from\s*'[^']*',\s*entity id\s*'(-?\d+)',\s*to\s*'([^']*)'\):\s*'([^']*)':\s*(.*)$`)
+	joinRe  = regexp.MustCompile(`^GMSG:\s*Player\s*'([^']*)'\s+joined`)
+	partRe  = regexp.MustCompile(`^GMSG:\s*Player\s*'([^']*)'\s+left`)
+	deathRe = regexp.MustCompile(`^GMSG:\s*Player\s*'([^']*)'\s+died`)
 )
 
 // classify labels a log message and extracts the player name where it can.
@@ -196,6 +205,9 @@ func classify(msg string) (Kind, string) {
 	}
 	if m := partRe.FindStringSubmatch(trimmed); m != nil {
 		return KindLeave, m[1]
+	}
+	if m := deathRe.FindStringSubmatch(trimmed); m != nil {
+		return KindDeath, m[1]
 	}
 	return KindLog, ""
 }

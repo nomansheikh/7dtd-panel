@@ -4,6 +4,7 @@ import { AppShell } from "@/components/app-shell";
 import { DashboardPage } from "@/pages/dashboard";
 import { ConsolePage } from "@/pages/console";
 import { EventsPage } from "@/pages/events";
+import { PlayersPage } from "@/pages/players";
 import { WorldPage } from "@/pages/world";
 import { LoginPage } from "@/pages/login";
 import { useAuth } from "@/hooks/use-auth";
@@ -28,6 +29,7 @@ export default function App() {
         <RequireServer>
           <Routes>
             <Route path="/" element={<DashboardPage />} />
+            <Route path="/players" element={<PlayersPage />} />
             <Route path="/console" element={<ConsolePage />} />
             <Route path="/events" element={<EventsPage />} />
             <Route path="/world" element={<WorldPage />} />

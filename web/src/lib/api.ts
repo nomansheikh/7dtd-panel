@@ -110,7 +110,38 @@ export interface GameItem {
   isBlock: boolean;
 }
 
-export type EventKind = "log" | "chat" | "join" | "leave" | "status";
+export interface Position {
+  x: number;
+  y: number;
+  z: number;
+}
+
+export interface Player {
+  entityId: number;
+  name: string;
+  platformId: string;
+  crossplatformId?: string;
+  online: boolean;
+  ping: number;
+  /** Only known while online; /api/player is the sole source. */
+  position?: Position;
+  level: number;
+  health: number;
+  deaths: number;
+  zombieKills: number;
+  playerKills: number;
+  playTimeSeconds: number;
+  lastOnline?: string;
+  banned: boolean;
+  banReason?: string;
+  banUntil?: string;
+  ip?: string;
+}
+
+/** Duration units the game's ban command accepts. */
+export type BanUnit = "minutes" | "hours" | "days" | "weeks" | "months" | "years";
+
+export type EventKind = "log" | "chat" | "join" | "leave" | "death" | "status";
 
 export interface PanelEvent {
   /** Panel-assigned and always increasing, so the UI can detect gaps. */
@@ -265,6 +296,66 @@ export const api = {
     request<{ items: GameItem[]; total: number }>(
       forServer(serverId, `/items?q=${encodeURIComponent(q)}`),
     ),
+
+  players: (serverId: string) => request<{ players: Player[] }>(forServer(serverId, "/players")),
+
+  teleport: (
+    serverId: string,
+    entityId: number,
+    to: { x: number; y: number; z: number } | { toEntityId: number },
+  ) =>
+    request<ActionResult>(forServer(serverId, `/players/${entityId}/teleport`), {
+      method: "POST",
+      body: JSON.stringify(to),
+    }),
+
+  giveItem: (serverId: string, entityId: number, item: string, count: number, quality: number) =>
+    request<ActionResult>(forServer(serverId, `/players/${entityId}/give`), {
+      method: "POST",
+      body: JSON.stringify({ item, count, quality }),
+    }),
+
+  killPlayer: (serverId: string, entityId: number) =>
+    request<ActionResult>(forServer(serverId, `/players/${entityId}/kill`), {
+      method: "POST",
+      body: "{}",
+    }),
+
+  kickPlayer: (serverId: string, entityId: number, reason: string) =>
+    request<ActionResult>(forServer(serverId, `/players/${entityId}/kick`), {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    }),
+
+  buffPlayer: (serverId: string, entityId: number, buff: string, remove: boolean) =>
+    request<ActionResult>(forServer(serverId, `/players/${entityId}/buff`), {
+      method: "POST",
+      body: JSON.stringify({ buff, remove }),
+    }),
+
+  giveXP: (serverId: string, entityId: number, amount: number) =>
+    request<ActionResult>(forServer(serverId, `/players/${entityId}/xp`), {
+      method: "POST",
+      body: JSON.stringify({ amount }),
+    }),
+
+  banPlayer: (
+    serverId: string,
+    platformId: string,
+    duration: number,
+    unit: BanUnit,
+    reason: string,
+  ) =>
+    request<ActionResult>(forServer(serverId, "/players/ban"), {
+      method: "POST",
+      body: JSON.stringify({ platformId, duration, unit, reason }),
+    }),
+
+  unbanPlayer: (serverId: string, platformId: string) =>
+    request<ActionResult>(forServer(serverId, "/players/unban"), {
+      method: "POST",
+      body: JSON.stringify({ platformId, duration: 1, unit: "days", reason: "" }),
+    }),
 
   /** The browser-facing event stream for one server. */
   eventsUrl: (serverId: string) => forServer(serverId, "/events"),

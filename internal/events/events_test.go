@@ -216,9 +216,10 @@ func TestPublishLogFallsBackWhenTimestampIsUnparseable(t *testing.T) {
 }
 
 func TestClassify(t *testing.T) {
-	// These patterns are the panel's best guess at the game's log format and
-	// have never been matched against a real line, so the important property is
-	// that anything unrecognised stays an ordinary log entry.
+	// The first two cases are verbatim lines captured from a live server with a
+	// player online, so the formats are confirmed rather than guessed. The
+	// important property remains that anything unrecognised stays an ordinary
+	// log entry.
 	tests := []struct {
 		name       string
 		msg        string
@@ -226,10 +227,11 @@ func TestClassify(t *testing.T) {
 		wantPlayer string
 	}{
 		{
+			// Captured verbatim from a live server.
 			name:       "global chat",
-			msg:        `Chat (from 'Steam_76561198021925107', entity id '171', to 'Global'): 'Noman': hello there`,
+			msg:        `Chat (from 'Steam_76561198803325430', entity id '173', to 'Global'): 'nullish': hello there`,
 			wantKind:   KindChat,
-			wantPlayer: "Noman",
+			wantPlayer: "nullish",
 		},
 		{
 			name:       "chat to a party",
@@ -244,12 +246,21 @@ func TestClassify(t *testing.T) {
 			wantPlayer: "Server",
 		},
 		{
+			// Captured verbatim from a live server.
 			name:       "join",
-			msg:        `GMSG: Player 'Noman' joined the game`,
+			msg:        `GMSG: Player 'nullish' joined the game`,
 			wantKind:   KindJoin,
-			wantPlayer: "Noman",
+			wantPlayer: "nullish",
 		},
 		{
+			// Captured verbatim from a live server.
+			name:       "death",
+			msg:        `GMSG: Player 'nullish' died`,
+			wantKind:   KindDeath,
+			wantPlayer: "nullish",
+		},
+		{
+			// Inferred from the same GMSG shape; not yet seen on a live server.
 			name:       "leave",
 			msg:        `GMSG: Player 'Noman' left the game`,
 			wantKind:   KindLeave,

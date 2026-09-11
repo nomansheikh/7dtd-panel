@@ -24,9 +24,14 @@ import (
 // The collaborators are interfaces so a test can assemble a Server from fakes
 // without standing up a real client, poller and log stream for each one.
 
-// Executor runs console commands. This is the only write path for game state.
+// Executor runs console commands and reads the player list.
+//
+// Console commands are the only write path for game state. Players is here
+// rather than on the poller because it merges two endpoints and is read on
+// demand, not on a schedule.
 type Executor interface {
 	Execute(ctx context.Context, command string) (sdtd.CommandResult, error)
+	Players(ctx context.Context) ([]sdtd.Player, error)
 }
 
 // Snapshotter supplies the cached view of a server.
