@@ -195,3 +195,17 @@ func (s *Server) handleEntities(w http.ResponseWriter, r *http.Request) {
 		"total":    total,
 	})
 }
+
+// handleBuffs serves a ranked slice of the buff catalogue for the picker.
+func (s *Server) handleBuffs(w http.ResponseWriter, r *http.Request) {
+	buffs, total, err := serverFrom(r.Context()).Buffs.Search(
+		r.Context(), r.URL.Query().Get("q"), 50)
+	if err != nil {
+		s.writeGameError(w, err, "could not load the buff list")
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{
+		"buffs": buffs,
+		"total": total,
+	})
+}

@@ -32,6 +32,15 @@ import (
 type Executor interface {
 	Execute(ctx context.Context, command string) (sdtd.CommandResult, error)
 	Players(ctx context.Context) ([]sdtd.Player, error)
+	GamePrefs(ctx context.Context) (sdtd.ValueSet, error)
+	// ReadGamePref reads a preference's live value through the console,
+	// because /api/gameprefs does not reflect runtime changes.
+	ReadGamePref(ctx context.Context, name string) (string, error)
+	// GamePrefsLive does the same for every preference at once.
+	GamePrefsLive(ctx context.Context) (map[string]string, error)
+	// SandboxSettings supplies the descriptions and allowed values the
+	// settings page needs to render pickers instead of text fields.
+	SandboxSettings(ctx context.Context) (sdtd.SandboxSettings, error)
 }
 
 // Snapshotter supplies the cached view of a server.
@@ -55,6 +64,13 @@ type EntityCatalogue interface {
 	Lookup(ctx context.Context, name string) (sdtd.EntityClass, bool, error)
 }
 
+// BuffCatalogue backs the buff picker and rejects names the server would not
+// recognise.
+type BuffCatalogue interface {
+	Search(ctx context.Context, query string, limit int) ([]sdtd.Buff, int, error)
+	Has(ctx context.Context, name string) (bool, error)
+}
+
 // EventFeed is the hub browser clients subscribe to.
 type EventFeed interface {
 	Subscribe(backlog int) ([]events.Event, <-chan events.Event, func())
@@ -73,6 +89,7 @@ type Server struct {
 	Commands CommandCatalogue
 	Items    ItemCatalogue
 	Entities EntityCatalogue
+	Buffs    BuffCatalogue
 
 	// These are the concrete collaborators Run needs. A Server assembled by a
 	// test leaves them nil and is simply never Run.
@@ -119,6 +136,7 @@ func New(cfg config.Config, log *slog.Logger, pollInterval time.Duration, failur
 			Commands: catalog.NewCommands(client, time.Hour, serverLog.With("component", "catalog")),
 			Items:    items,
 			Entities: catalog.NewEntities(client, time.Hour, serverLog.With("component", "catalog")),
+			Buffs:    catalog.NewBuffs(client, time.Hour, serverLog.With("component", "catalog")),
 			stream:   sdtd.NewLogStreamer(client, serverLog.With("component", "logstream")),
 			publish:  hub.PublishLog,
 			warm:     items.Warm,

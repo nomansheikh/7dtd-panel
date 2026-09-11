@@ -17,7 +17,9 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/nomansheikh/7dtd-panel/internal/sdtd/gen"
@@ -406,4 +408,52 @@ func (c *Client) EntityClasses(ctx context.Context) ([]EntityClass, error) {
 	return fetch[[]EntityClass](func() (*http.Response, error) {
 		return c.gen.EntityclassGet(ctx)
 	})
+}
+
+// gamePrefLine matches the console's reply to getgamepref, which looks like
+// "GamePref.AirDropFrequency = 72".
+var gamePrefLine = regexp.MustCompile(`(?m)^\s*GamePref\.(\S+)\s*=\s*(.*?)\s*$`)
+
+// GamePrefsLive returns every preference's live value via the console.
+//
+// /api/gameprefs reports the values the server started with, not the ones it is
+// running: after setgamepref moved BloodMoonWarning to 2, that endpoint still
+// said 1 while the console said 2. Anything that shows preferences has to
+// overlay this, or it shows an operator a value the server is not using.
+//
+// The reply covers about 153 of the 287 preferences — the server-side ones.
+// Preferences it omits keep whatever /api/gameprefs reported.
+func (c *Client) GamePrefsLive(ctx context.Context) (map[string]string, error) {
+	result, err := c.Execute(ctx, "getgamepref")
+	if err != nil {
+		return nil, err
+	}
+	matches := gamePrefLine.FindAllStringSubmatch(result.Result, -1)
+	values := make(map[string]string, len(matches))
+	for _, m := range matches {
+		values[m[1]] = m[2]
+	}
+	if len(values) == 0 {
+		return nil, fmt.Errorf("sdtd: getgamepref returned nothing recognisable")
+	}
+	return values, nil
+}
+
+// ReadGamePref returns a preference's live value via the console.
+//
+// This exists because /api/gameprefs does not reflect runtime changes: after
+// setgamepref moved AirDropFrequency to 72, that endpoint still reported 3
+// while the console reported 72. Anything that writes a preference has to read
+// it back this way or it will show the operator a stale value.
+func (c *Client) ReadGamePref(ctx context.Context, name string) (string, error) {
+	result, err := c.Execute(ctx, "getgamepref "+name)
+	if err != nil {
+		return "", err
+	}
+	for _, m := range gamePrefLine.FindAllStringSubmatch(result.Result, -1) {
+		if strings.EqualFold(m[1], name) {
+			return m[2], nil
+		}
+	}
+	return "", fmt.Errorf("sdtd: no preference called %s", name)
 }

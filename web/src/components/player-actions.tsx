@@ -167,30 +167,7 @@ export function PlayerActionDialog({
             </Field>
           )}
 
-          {kind === "buff" && (
-            <>
-              <Field label="Buff name" htmlFor="buff-name">
-                <Input
-                  id="buff-name"
-                  value={form.buff ?? ""}
-                  onChange={(e) => set("buff")(e.target.value)}
-                  placeholder="buffInjuryDeepLaceration"
-                  className="font-mono"
-                />
-              </Field>
-              <Field label="Action" htmlFor="buff-mode">
-                <Select value={form.remove ?? "no"} onValueChange={set("remove")}>
-                  <SelectTrigger id="buff-mode">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="no">Apply</SelectItem>
-                    <SelectItem value="yes">Remove</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
-            </>
-          )}
+          {kind === "buff" && <BuffFields form={form} set={set} />}
 
           {kind === "kick" && (
             <Field label="Reason (optional)" htmlFor="kick-reason">
@@ -389,6 +366,76 @@ function GiveFields({
       <p className="text-xs text-muted-foreground">
         The item is dropped in front of the player rather than placed in their inventory.
       </p>
+    </>
+  );
+}
+
+/**
+ * The buff picker.
+ *
+ * Buff names are things like buffInjuryDeepLaceration, which nobody is going to
+ * remember and which the console accepts silently when misspelled. The server
+ * will list all 483 of them with their display names, so this picks from that
+ * list rather than asking anyone to type one.
+ */
+function BuffFields({
+  form,
+  set,
+}: {
+  form: Record<string, string>;
+  set: (key: string) => (value: string) => void;
+}) {
+  const serverId = useServerId();
+  const [query, setQuery] = useState("");
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["buffs", serverId, query],
+    queryFn: () => api.searchBuffs(serverId, query),
+  });
+  const buffs = data?.buffs ?? [];
+
+  return (
+    <>
+      <Field label="Search buffs" htmlFor="buff-search">
+        <Input
+          id="buff-search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="broken leg, stamina, infection…"
+        />
+      </Field>
+
+      <Field label="Buff" htmlFor="buff-name">
+        <Select value={form.buff ?? ""} onValueChange={set("buff")}>
+          <SelectTrigger id="buff-name">
+            <SelectValue
+              placeholder={isLoading ? "Loading…" : `${data?.total ?? 0} to choose from`}
+            />
+          </SelectTrigger>
+          <SelectContent>
+            {buffs.map((buff) => (
+              <SelectItem key={buff.name} value={buff.name}>
+                {buff.localizedName || buff.name}
+                {buff.localizedName && (
+                  <span className="ml-2 text-xs text-muted-foreground">{buff.name}</span>
+                )}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Field>
+
+      <Field label="Action" htmlFor="buff-mode">
+        <Select value={form.remove ?? "no"} onValueChange={set("remove")}>
+          <SelectTrigger id="buff-mode">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="no">Apply</SelectItem>
+            <SelectItem value="yes">Remove</SelectItem>
+          </SelectContent>
+        </Select>
+      </Field>
     </>
   );
 }

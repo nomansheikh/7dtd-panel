@@ -56,6 +56,59 @@ export interface Dashboard {
   bloodMoon: { active: boolean; nextDay: number; nextHour: number } | null;
 }
 
+/** One allowed value of a setting, labelled the way the game labels it. */
+export interface SettingChoice {
+  value: string;
+  label: string;
+}
+
+export interface Setting {
+  /** The raw preference name, e.g. BloodMoonFrequency. */
+  name: string;
+  label: string;
+  description?: string;
+  group: string;
+  type: "bool" | "int" | "float" | "string";
+  value: string | number | boolean | null;
+  default: string | number | boolean | null;
+  /** The game's word for the current value, e.g. "7 Days". */
+  valueLabel?: string;
+  defaultLabel?: string;
+  changed: boolean;
+  editable: boolean;
+  readOnlyReason?: string;
+  /** When present the control is a picker rather than a field. */
+  choices?: SettingChoice[];
+}
+
+export interface SettingsGroup {
+  name: string;
+  settings: Setting[];
+}
+
+export interface SettingsSection {
+  id: "world" | "server" | "client";
+  title: string;
+  description: string;
+  groups: SettingsGroup[];
+  total: number;
+}
+
+export interface Settings {
+  /** The world's sandbox code, which reproduces these rules on a new world. */
+  sandboxCode: string;
+  sections: SettingsSection[];
+}
+
+export interface SettingUpdate {
+  name: string;
+  /** What the server reports after the change, read back rather than echoed. */
+  value: string;
+  command: string;
+  /** Always false: the game keeps this in memory until it restarts. */
+  persisted: boolean;
+}
+
 /** How much confirmation the panel demands before running a command. */
 export type CommandTier = "normal" | "mutating" | "destructive";
 
@@ -108,6 +161,13 @@ export interface GameItem {
   name: string;
   localizedName: string;
   isBlock: boolean;
+}
+
+/** One buff or debuff the server will apply. */
+export interface Buff {
+  name: string;
+  /** What the game calls it on screen; absent for internal buffs. */
+  localizedName?: string;
 }
 
 export interface Position {
@@ -292,6 +352,11 @@ export const api = {
       forServer(serverId, `/entities?q=${encodeURIComponent(q)}`),
     ),
 
+  searchBuffs: (serverId: string, q: string) =>
+    request<{ buffs: Buff[]; total: number }>(
+      forServer(serverId, `/buffs?q=${encodeURIComponent(q)}`),
+    ),
+
   searchItems: (serverId: string, q: string) =>
     request<{ items: GameItem[]; total: number }>(
       forServer(serverId, `/items?q=${encodeURIComponent(q)}`),
@@ -355,6 +420,14 @@ export const api = {
     request<ActionResult>(forServer(serverId, "/players/unban"), {
       method: "POST",
       body: JSON.stringify({ platformId, duration: 1, unit: "days", reason: "" }),
+    }),
+
+  settings: (serverId: string) => request<Settings>(forServer(serverId, "/settings")),
+
+  updateSetting: (serverId: string, name: string, value: string) =>
+    request<SettingUpdate>(forServer(serverId, `/settings/${encodeURIComponent(name)}`), {
+      method: "PUT",
+      body: JSON.stringify({ value }),
     }),
 
   /** The browser-facing event stream for one server. */

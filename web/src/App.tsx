@@ -6,6 +6,7 @@ import { ConsolePage } from "@/pages/console";
 import { EventsPage } from "@/pages/events";
 import { PlayersPage } from "@/pages/players";
 import { WorldPage } from "@/pages/world";
+import { SettingsPage } from "@/pages/settings";
 import { LoginPage } from "@/pages/login";
 import { useAuth } from "@/hooks/use-auth";
 import { useServers } from "@/hooks/use-servers";
@@ -33,6 +34,7 @@ export default function App() {
             <Route path="/console" element={<ConsolePage />} />
             <Route path="/events" element={<EventsPage />} />
             <Route path="/world" element={<WorldPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
             {/* Unknown paths go home rather than showing nothing. */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

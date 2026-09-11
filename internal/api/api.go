@@ -118,8 +118,12 @@ func (s *Server) Routes() *http.ServeMux {
 	scoped("POST /api/servers/{server}/world/horde", s.handleWanderingHorde)
 	scoped("POST /api/servers/{server}/world/say", s.handleSay)
 
+	scoped("GET /api/servers/{server}/settings", s.handleSettings)
+	scoped("PUT /api/servers/{server}/settings/{name}", s.handleUpdateSetting)
+
 	scoped("GET /api/servers/{server}/items", s.handleItems)
 	scoped("GET /api/servers/{server}/entities", s.handleEntities)
+	scoped("GET /api/servers/{server}/buffs", s.handleBuffs)
 
 	return mux
 }

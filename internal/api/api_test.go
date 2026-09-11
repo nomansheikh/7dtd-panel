@@ -91,6 +91,7 @@ func newHarness(t *testing.T, snap state.Snapshot) *harness {
 		Commands: &fakeCatalogue{},
 		Items:    &fakeItems{},
 		Entities: &fakeEntities{},
+		Buffs:    &fakeBuffs{},
 	}
 
 	s := NewServer(Deps{

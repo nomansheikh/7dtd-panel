@@ -56,6 +56,21 @@ func (f *fakeItems) Has(_ context.Context, name string) (bool, error) {
 	return false, nil
 }
 
+type fakeBuffs struct{ buffs []sdtd.Buff }
+
+func (f *fakeBuffs) Search(_ context.Context, _ string, _ int) ([]sdtd.Buff, int, error) {
+	return f.buffs, len(f.buffs), nil
+}
+
+func (f *fakeBuffs) Has(_ context.Context, name string) (bool, error) {
+	for _, b := range f.buffs {
+		if b.Name == name {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 func worldHarness(t *testing.T) (*harness, *fakeGame, *http.Cookie) {
 	t.Helper()
 	h := newHarness(t, state.Snapshot{Status: state.StatusOnline})

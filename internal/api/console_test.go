@@ -21,14 +21,49 @@ type fakeGame struct {
 	err        error
 	players    []sdtd.Player
 	playersErr error
+	prefs      sdtd.ValueSet
+	prefsErr   error
+	// readBack lets a test simulate the server reporting a different value
+	// than the one that was written.
+	readBack      map[string]string
+	lastPrefValue string
+	sandbox       sdtd.SandboxSettings
+	sandboxErr    error
+	// live is what the console reports, which is not always what
+	// /api/gameprefs reports.
+	live    map[string]string
+	liveErr error
 }
 
 func (f *fakeGame) Players(context.Context) ([]sdtd.Player, error) {
 	return f.players, f.playersErr
 }
 
+func (f *fakeGame) GamePrefs(context.Context) (sdtd.ValueSet, error) {
+	return f.prefs, f.prefsErr
+}
+
+func (f *fakeGame) GamePrefsLive(context.Context) (map[string]string, error) {
+	return f.live, f.liveErr
+}
+
+func (f *fakeGame) SandboxSettings(context.Context) (sdtd.SandboxSettings, error) {
+	return f.sandbox, f.sandboxErr
+}
+
+func (f *fakeGame) ReadGamePref(_ context.Context, name string) (string, error) {
+	if v, ok := f.readBack[name]; ok {
+		return v, nil
+	}
+	// Default to echoing what was written, which is what a healthy server does.
+	return f.lastPrefValue, nil
+}
+
 func (f *fakeGame) Execute(_ context.Context, command string) (sdtd.CommandResult, error) {
 	f.executed = append(f.executed, command)
+	if fields := strings.Fields(command); len(fields) == 3 && fields[0] == "setgamepref" {
+		f.lastPrefValue = fields[2]
+	}
 	if f.err != nil {
 		return sdtd.CommandResult{}, f.err
 	}

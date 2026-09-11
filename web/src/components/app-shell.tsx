@@ -14,6 +14,7 @@ const NAV = [
   { to: "/console", label: "Console" },
   { to: "/world", label: "World" },
   { to: "/events", label: "Events" },
+  { to: "/settings", label: "Settings" },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {

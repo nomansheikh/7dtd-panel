@@ -235,7 +235,27 @@ func (s *Server) handleBuff(w http.ResponseWriter, r *http.Request) {
 	} else {
 		command, buildErr = console.Buff(entityID, req.Buff)
 	}
-	s.runAction(w, r, command, buildErr)
+	// The argument check comes first because it is local: a game server that
+	// cannot answer should not turn a malformed argument into a vaguer error.
+	if buildErr != nil {
+		s.runAction(w, r, command, buildErr)
+		return
+	}
+
+	// Checked against the server's own list, because the console accepts a
+	// misspelled buff name and then silently does nothing.
+	known, err := serverFrom(r.Context()).Buffs.Has(r.Context(), req.Buff)
+	if err != nil {
+		s.writeGameError(w, err, "could not load the buff list")
+		return
+	}
+	if !known {
+		httpx.WriteError(w, http.StatusBadRequest,
+			"no buff called "+req.Buff+" on this server", "UNKNOWN_BUFF")
+		return
+	}
+
+	s.runAction(w, r, command, nil)
 }
 
 type xpRequest struct {

@@ -15,6 +15,10 @@ func playerHarness(t *testing.T, players []sdtd.Player) (*harness, *fakeGame, *h
 	h := newHarness(t, state.Snapshot{Status: state.StatusOnline})
 	game := &fakeGame{players: players}
 	h.srv.Client = game
+	h.srv.Buffs = &fakeBuffs{buffs: []sdtd.Buff{
+		{Name: "buffBrokenLeg", LocalizedName: "Broken Leg"},
+		{Name: "buffInjuryDeepLaceration", LocalizedName: "Deep Laceration"},
+	}}
 	h.srv.Items = &fakeItems{items: []sdtd.Item{
 		{Name: "resourceWood", LocalizedName: "Wood"},
 	}}
