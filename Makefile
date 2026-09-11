@@ -36,6 +36,16 @@ frontend: ## Build the UI into internal/web/dist so the binary can embed it.
 	rm -f internal/web/dist/index.html internal/web/dist/favicon.svg
 	cd web && npm ci && npx vp build
 
+ui-add: ## Add shadcn components, e.g. make ui-add ITEMS="table command".
+	@test -n "$(ITEMS)" || { echo 'ITEMS is required, e.g. make ui-add ITEMS="table dialog"'; exit 1; }
+	cd web && npx shadcn@4.21.0 add $(ITEMS) --yes
+	# shadcn emits `import { cn } from "cn"`, pulling in an npm package for a
+	# three-line helper the project already has at @/lib/utils. Rewrite it and
+	# drop the dependency, or it reappears on every add.
+	cd web && sed -i '' 's|import { cn } from "cn"|import { cn } from "@/lib/utils"|' src/components/ui/*.tsx
+	cd web && npm uninstall cn >/dev/null 2>&1 || true
+	cd web && npx vp check --fix
+
 frontend-check: ## Format, lint and type-check the UI.
 	cd web && npx vp check
 

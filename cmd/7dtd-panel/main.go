@@ -20,7 +20,9 @@ import (
 
 	"github.com/nomansheikh/7dtd-panel/internal/api"
 	"github.com/nomansheikh/7dtd-panel/internal/auth"
+	"github.com/nomansheikh/7dtd-panel/internal/catalog"
 	"github.com/nomansheikh/7dtd-panel/internal/config"
+	"github.com/nomansheikh/7dtd-panel/internal/events"
 	"github.com/nomansheikh/7dtd-panel/internal/httpx"
 	"github.com/nomansheikh/7dtd-panel/internal/sdtd"
 	"github.com/nomansheikh/7dtd-panel/internal/state"
@@ -101,12 +103,24 @@ func run() error {
 		return err
 	}
 
+	// One hub fans the game server's log out to every browser tab, so the
+	// number of connections to the game server does not grow with viewers.
+	hub := events.NewHub()
+
 	poller := state.New(state.Options{
 		Client:           gameClient,
 		Interval:         cfg.Panel.PollInterval,
 		FailureThreshold: cfg.Panel.FailureThreshold,
 		Logger:           log.With("component", "poller"),
+		OnStatusChange: func(from, to state.Status) {
+			hub.PublishStatus("Game server " + string(to) + " (was " + string(from) + ")")
+		},
 	})
+
+	commandCatalogue := catalog.NewCommands(gameClient, time.Hour,
+		log.With("component", "catalog"))
+
+	logStream := sdtd.NewLogStreamer(gameClient, log.With("component", "logstream"))
 
 	sessions := auth.NewSessions(db, cfg.Panel.SessionTTL, cfg.Panel.TrustProxy)
 
@@ -115,6 +129,9 @@ func run() error {
 		Store:    db,
 		Sessions: sessions,
 		State:    poller,
+		Game:     gameClient,
+		Commands: commandCatalogue,
+		Events:   hub,
 		Logger:   log.With("component", "api"),
 		Version:  version,
 	})
@@ -123,6 +140,8 @@ func run() error {
 	// stop when ctx is cancelled.
 	go poller.Run(ctx)
 	go apiServer.CleanupSessions(ctx, time.Hour)
+	go logStream.Run(ctx, hub.PublishLog)
+	go pruneHistory(ctx, db, log)
 
 	mux := http.NewServeMux()
 	mux.Handle("/api/", apiServer.Routes())
@@ -258,4 +277,29 @@ func healthcheck() int {
 		return 1
 	}
 	return 0
+}
+
+// historyKeep is how many console commands are retained per operator.
+const historyKeep = 500
+
+// pruneHistory trims console history so a long-lived panel does not accumulate
+// it without bound.
+func pruneHistory(ctx context.Context, db *store.Store, log *slog.Logger) {
+	ticker := time.NewTicker(6 * time.Hour)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			n, err := db.PruneCommandHistory(ctx, historyKeep)
+			if err != nil {
+				log.Warn("pruning command history failed", "error", err)
+				continue
+			}
+			if n > 0 {
+				log.Debug("pruned command history", "removed", n)
+			}
+		}
+	}
 }

@@ -32,6 +32,52 @@ export interface Dashboard {
   bloodMoon: { active: boolean; nextDay: number; nextHour: number } | null;
 }
 
+/** How much confirmation the panel demands before running a command. */
+export type CommandTier = "normal" | "mutating" | "destructive";
+
+export interface CommandInfo {
+  name: string;
+  aliases: string[];
+  description: string;
+  /** The game server's own usage text, absent for many commands. */
+  help?: string;
+  allowed: boolean;
+  tier: CommandTier;
+  /** True when PANEL_ALLOW_DESTRUCTIVE is off and this command is destructive. */
+  blocked: boolean;
+}
+
+export interface ExecuteResult {
+  command: string;
+  parameters: string;
+  result: string;
+  tier: CommandTier;
+  ranAt: string;
+}
+
+export interface HistoryEntry {
+  id: number;
+  command: string;
+  succeeded: boolean;
+  result?: string;
+  error?: string;
+  ranAt: string;
+}
+
+export type EventKind = "log" | "chat" | "join" | "leave" | "status";
+
+export interface PanelEvent {
+  /** Panel-assigned and always increasing, so the UI can detect gaps. */
+  seq: number;
+  kind: EventKind;
+  at: string;
+  /** The game server's own log line number; absent for panel-generated events. */
+  logId?: number;
+  severity?: string;
+  message: string;
+  player?: string;
+}
+
 /** ApiError carries the panel's real message so the UI never has to invent one. */
 export class ApiError extends Error {
   readonly status: number;
@@ -106,4 +152,15 @@ export const api = {
   me: () => request<User>("/api/auth/me"),
 
   dashboard: () => request<Dashboard>("/api/dashboard"),
+
+  commands: () => request<{ commands: CommandInfo[]; fetchedAt: string }>("/api/console/commands"),
+
+  execute: (command: string) =>
+    request<ExecuteResult>("/api/console/execute", {
+      method: "POST",
+      body: JSON.stringify({ command }),
+    }),
+
+  history: (limit = 100) =>
+    request<{ history: HistoryEntry[] }>(`/api/console/history?limit=${limit}`),
 };

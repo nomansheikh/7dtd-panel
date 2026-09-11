@@ -1,0 +1,321 @@
+package events
+
+import (
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/nomansheikh/7dtd-panel/internal/sdtd"
+)
+
+func TestPublishAssignsIncreasingSequence(t *testing.T) {
+	h := NewHub()
+	for i := 0; i < 5; i++ {
+		h.PublishStatus("tick")
+	}
+	history, _, cancel := h.Subscribe(-1)
+	defer cancel()
+
+	if len(history) != 5 {
+		t.Fatalf("history = %d events, want 5", len(history))
+	}
+	for i := 1; i < len(history); i++ {
+		if history[i].Seq <= history[i-1].Seq {
+			t.Errorf("sequence did not increase at %d: %d then %d",
+				i, history[i-1].Seq, history[i].Seq)
+		}
+	}
+}
+
+func TestSubscriberReceivesSubsequentEvents(t *testing.T) {
+	h := NewHub()
+	h.PublishStatus("before")
+
+	history, ch, cancel := h.Subscribe(-1)
+	defer cancel()
+
+	if len(history) != 1 || history[0].Message != "before" {
+		t.Fatalf("backlog = %+v, want the one earlier event", history)
+	}
+
+	h.PublishStatus("after")
+	select {
+	case got := <-ch:
+		if got.Message != "after" {
+			t.Errorf("message = %q, want after", got.Message)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("subscriber never received the event")
+	}
+}
+
+// TestSubscribeIsAtomic guards the window between reading history and
+// registering the channel: an event published in between must not vanish.
+func TestSubscribeIsAtomic(t *testing.T) {
+	h := NewHub()
+	var wg sync.WaitGroup
+
+	// Hammer the hub while subscribing repeatedly.
+	stop := make(chan struct{})
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+				h.PublishStatus("noise")
+			}
+		}
+	}()
+
+	for i := 0; i < 50; i++ {
+		history, ch, cancel := h.Subscribe(10)
+		var lastHistory int64
+		if len(history) > 0 {
+			lastHistory = history[len(history)-1].Seq
+		}
+		select {
+		case got := <-ch:
+			// The first live event must come immediately after the backlog,
+			// with nothing skipped.
+			if lastHistory != 0 && got.Seq != lastHistory+1 {
+				t.Fatalf("gap: backlog ended at %d, first live event was %d",
+					lastHistory, got.Seq)
+			}
+		case <-time.After(time.Second):
+		}
+		cancel()
+	}
+	close(stop)
+	wg.Wait()
+}
+
+func TestRingBufferIsBounded(t *testing.T) {
+	h := NewHub()
+	for i := 0; i < ringSize+100; i++ {
+		h.PublishStatus("filler")
+	}
+	history, _, cancel := h.Subscribe(-1)
+	defer cancel()
+
+	if len(history) != ringSize {
+		t.Errorf("history = %d, want it capped at %d", len(history), ringSize)
+	}
+	// The oldest entries should have been evicted, leaving the newest.
+	if history[len(history)-1].Seq != int64(ringSize+100) {
+		t.Errorf("newest seq = %d, want %d", history[len(history)-1].Seq, ringSize+100)
+	}
+	if history[0].Seq != 101 {
+		t.Errorf("oldest retained seq = %d, want 101", history[0].Seq)
+	}
+}
+
+func TestBacklogLimit(t *testing.T) {
+	h := NewHub()
+	for i := 0; i < 20; i++ {
+		h.PublishStatus("x")
+	}
+	history, _, cancel := h.Subscribe(5)
+	defer cancel()
+
+	if len(history) != 5 {
+		t.Fatalf("history = %d, want 5", len(history))
+	}
+	// Asking for 5 should give the five most recent, not the five oldest.
+	if history[len(history)-1].Seq != 20 {
+		t.Errorf("newest seq = %d, want 20", history[len(history)-1].Seq)
+	}
+}
+
+// TestSlowSubscriberIsDroppedNotBlocking is the property that keeps one stalled
+// browser tab from stalling everyone else.
+func TestSlowSubscriberIsDroppedNotBlocking(t *testing.T) {
+	h := NewHub()
+
+	_, slow, cancelSlow := h.Subscribe(0)
+	defer cancelSlow()
+	_, fast, cancelFast := h.Subscribe(0)
+	defer cancelFast()
+
+	// Never read from slow. Publish far more than its buffer holds.
+	done := make(chan struct{})
+	go func() {
+		for i := 0; i < subscriberBuffer*3; i++ {
+			h.PublishStatus("flood")
+		}
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Publish blocked on a subscriber that stopped reading")
+	}
+
+	// The slow one should have been closed.
+	drained := 0
+	for range slow {
+		drained++
+	}
+	if drained == 0 {
+		t.Error("the slow subscriber received nothing at all")
+	}
+
+	_, _, dropped := h.Stats()
+	if dropped == 0 {
+		t.Error("no subscriber was recorded as dropped")
+	}
+
+	// The fast one must still be usable.
+	go func() {
+		for range fast {
+		}
+	}()
+}
+
+func TestPublishLogCarriesServerFields(t *testing.T) {
+	h := NewHub()
+	h.PublishLog(sdtd.LogEntry{
+		ID:      42,
+		Msg:     "StartGame done",
+		Type:    "Warning",
+		ISOTime: "2026-09-11T08:00:00.0000000+00:00",
+		Uptime:  "1234",
+	})
+
+	history, _, cancel := h.Subscribe(-1)
+	defer cancel()
+
+	got := history[0]
+	if got.LogID == nil || *got.LogID != 42 {
+		t.Errorf("logId = %v, want 42", got.LogID)
+	}
+	if got.Severity != "Warning" {
+		t.Errorf("severity = %q, want Warning", got.Severity)
+	}
+	if got.Kind != KindLog {
+		t.Errorf("kind = %q, want log", got.Kind)
+	}
+	// The server's own timestamp should be preferred over arrival time.
+	if got.At.Year() != 2026 || got.At.Month() != time.September {
+		t.Errorf("at = %s, want the server's isotime", got.At)
+	}
+}
+
+func TestPublishLogFallsBackWhenTimestampIsUnparseable(t *testing.T) {
+	h := NewHub()
+	h.PublishLog(sdtd.LogEntry{ID: 1, Msg: "x", ISOTime: "not a time"})
+	history, _, cancel := h.Subscribe(-1)
+	defer cancel()
+
+	if history[0].At.IsZero() {
+		t.Error("a bad server timestamp should fall back to arrival time, not zero")
+	}
+}
+
+func TestClassify(t *testing.T) {
+	// These patterns are the panel's best guess at the game's log format and
+	// have never been matched against a real line, so the important property is
+	// that anything unrecognised stays an ordinary log entry.
+	tests := []struct {
+		name       string
+		msg        string
+		wantKind   Kind
+		wantPlayer string
+	}{
+		{
+			name:       "global chat",
+			msg:        `Chat (from 'Steam_76561198021925107', entity id '171', to 'Global'): 'Noman': hello there`,
+			wantKind:   KindChat,
+			wantPlayer: "Noman",
+		},
+		{
+			name:       "chat to a party",
+			msg:        `Chat (from 'Steam_1', entity id '3', to 'Party'): 'Bob': on my way`,
+			wantKind:   KindChat,
+			wantPlayer: "Bob",
+		},
+		{
+			name:       "server chat has entity id -1",
+			msg:        `Chat (from 'Steam_-1', entity id '-1', to 'Global'): 'Server': restarting soon`,
+			wantKind:   KindChat,
+			wantPlayer: "Server",
+		},
+		{
+			name:       "join",
+			msg:        `GMSG: Player 'Noman' joined the game`,
+			wantKind:   KindJoin,
+			wantPlayer: "Noman",
+		},
+		{
+			name:       "leave",
+			msg:        `GMSG: Player 'Noman' left the game`,
+			wantKind:   KindLeave,
+			wantPlayer: "Noman",
+		},
+		{
+			name:     "ordinary log line",
+			msg:      "StartGame done",
+			wantKind: KindLog,
+		},
+		{
+			name:     "a command echo is not chat",
+			msg:      "Executing command 'gettime' by WebCommandResult_for_gettime_by_Unauth-PermLevel-0",
+			wantKind: KindLog,
+		},
+		{
+			name:     "something merely mentioning chat is not chat",
+			msg:      "INF Chat system initialised",
+			wantKind: KindLog,
+		},
+		{
+			name:     "empty",
+			msg:      "",
+			wantKind: KindLog,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			kind, player := classify(tt.msg)
+			if kind != tt.wantKind {
+				t.Errorf("kind = %q, want %q", kind, tt.wantKind)
+			}
+			if player != tt.wantPlayer {
+				t.Errorf("player = %q, want %q", player, tt.wantPlayer)
+			}
+		})
+	}
+}
+
+func TestConcurrentPublishAndSubscribe(t *testing.T) {
+	h := NewHub()
+	var wg sync.WaitGroup
+
+	for i := 0; i < 4; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < 200; j++ {
+				h.PublishStatus("concurrent")
+			}
+		}()
+	}
+	for i := 0; i < 4; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < 50; j++ {
+				_, ch, cancel := h.Subscribe(5)
+				go func() {
+					for range ch {
+					}
+				}()
+				cancel()
+			}
+		}()
+	}
+	wg.Wait()
+}

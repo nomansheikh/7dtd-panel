@@ -2,7 +2,11 @@ package sdtd
 
 import (
 	"context"
+	"io"
+	"log/slog"
 	"os"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -214,4 +218,71 @@ func TestIntegrationBloodmoon(t *testing.T) {
 	t.Logf("active=%v next=day %d %02d:%02d until day %d %02d:%02d",
 		bm.Active, bm.Next.Days, bm.Next.Hours, bm.Next.Minutes,
 		bm.NextBloodmoonEnd.Days, bm.NextBloodmoonEnd.Hours, bm.NextBloodmoonEnd.Minutes)
+}
+
+func TestIntegrationLogStream(t *testing.T) {
+	c := liveClient(t)
+	st := NewLogStreamer(c, slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	var (
+		mu      sync.Mutex
+		got     []LogEntry
+		arrived = make(chan struct{}, 1)
+	)
+	go st.Run(ctx, func(e LogEntry) {
+		mu.Lock()
+		got = append(got, e)
+		mu.Unlock()
+		select {
+		case arrived <- struct{}{}:
+		default:
+		}
+	})
+
+	// The cold-start seed should arrive without anything happening in-game.
+	select {
+	case <-arrived:
+	case <-ctx.Done():
+		t.Fatal("no log entries arrived from the live stream")
+	}
+
+	// Executing a command writes a line to the server log, which gives the
+	// live stream something to deliver without needing a player online.
+	if _, err := c.Execute(context.Background(), "gettime"); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	deadline := time.After(10 * time.Second)
+	for {
+		mu.Lock()
+		n := len(got)
+		hasCommand := false
+		for _, e := range got {
+			if strings.Contains(e.Msg, "gettime") {
+				hasCommand = true
+			}
+		}
+		last := got
+		mu.Unlock()
+
+		if hasCommand {
+			t.Logf("received %d entries; the live stream carried the command echo", n)
+			// Ids must be strictly increasing: no duplicates, no reordering.
+			for i := 1; i < len(last); i++ {
+				if last[i].ID <= last[i-1].ID {
+					t.Errorf("ids are not strictly increasing at %d: %d then %d",
+						i, last[i-1].ID, last[i].ID)
+				}
+			}
+			return
+		}
+		select {
+		case <-arrived:
+		case <-deadline:
+			t.Fatalf("the command echo never arrived on the stream; got %d entries", n)
+		}
+	}
 }

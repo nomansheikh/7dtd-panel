@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strconv"
 	"time"
@@ -38,6 +39,15 @@ const maxBodyBytes = 64 << 20
 type Client struct {
 	gen     *gen.Client
 	baseURL string
+
+	// Retained for the log stream, which is not in the OpenAPI spec and so is
+	// not covered by the generated client.
+	tokenName   string
+	tokenSecret string
+	// streamHTTP has no overall timeout, because an SSE response body stays
+	// open indefinitely and the regular client's timeout would sever it. Header
+	// and dial timeouts still bound how long a dead server can hang a connect.
+	streamHTTP *http.Client
 }
 
 // Options configures a Client.
@@ -49,6 +59,9 @@ type Options struct {
 	Timeout time.Duration
 	// HTTPClient overrides the transport, for tests.
 	HTTPClient *http.Client
+	// StreamHTTPClient overrides the transport used for the log stream. It must
+	// not set an overall Timeout.
+	StreamHTTPClient *http.Client
 }
 
 // New builds a Client. It does not contact the server; a Client is usable even
@@ -84,7 +97,25 @@ func New(opts Options) (*Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("sdtd: build client: %w", err)
 	}
-	return &Client{gen: g, baseURL: opts.BaseURL}, nil
+
+	streamHTTP := opts.StreamHTTPClient
+	if streamHTTP == nil {
+		streamHTTP = &http.Client{
+			Transport: &http.Transport{
+				DialContext:           (&net.Dialer{Timeout: 10 * time.Second}).DialContext,
+				ResponseHeaderTimeout: 15 * time.Second,
+				IdleConnTimeout:       90 * time.Second,
+			},
+		}
+	}
+
+	return &Client{
+		gen:         g,
+		baseURL:     opts.BaseURL,
+		tokenName:   opts.TokenName,
+		tokenSecret: opts.TokenSecret,
+		streamHTTP:  streamHTTP,
+	}, nil
 }
 
 // BaseURL reports the configured game server root.
@@ -310,4 +341,37 @@ func (c *Client) Execute(ctx context.Context, command string) (CommandResult, er
 	return fetch[CommandResult](func() (*http.Response, error) {
 		return c.gen.CommandPost(ctx, body)
 	})
+}
+
+// Command is one entry from the server's own command catalogue.
+type Command struct {
+	// Command is the primary name; Overloads lists every accepted alias,
+	// including the primary one.
+	Command     string   `json:"command"`
+	Overloads   []string `json:"overloads"`
+	Description string   `json:"description"`
+	// Help is the server's multi-line usage text, absent for many commands.
+	Help *string `json:"help"`
+	// Allowed reports whether the current credentials may run it.
+	Allowed *bool `json:"allowed"`
+}
+
+// commandsEnvelope matches the shape inside the response's data field.
+type commandsEnvelope struct {
+	Commands []Command `json:"commands"`
+}
+
+// Commands fetches the server's command catalogue.
+//
+// The panel builds its command palette from this rather than a hardcoded list,
+// so the palette reflects what the server actually accepts, including commands
+// added by mods, and carries the server's own help text.
+func (c *Client) Commands(ctx context.Context) ([]Command, error) {
+	env, err := fetch[commandsEnvelope](func() (*http.Response, error) {
+		return c.gen.CommandGet(ctx)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return env.Commands, nil
 }

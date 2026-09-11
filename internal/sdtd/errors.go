@@ -32,21 +32,37 @@ func (e *APIError) Error() string {
 	return msg
 }
 
+// codeMessages turn the server's SCREAMING_SNAKE codes into something a person
+// can read. The code itself is still reported separately, so nothing is lost.
+var codeMessages = map[string]string{
+	CodeUnknownCommand: "no such command on this server",
+	CodeNoCommand:      "no command was given",
+	CodeUnsupported:    "the server does not support this operation",
+	CodeIDNotFound:     "not found",
+	"INVALID_BODY":     "the server rejected the request body",
+}
+
 // SafeMessage is the real server error with the stack trace removed, suitable
 // for showing to a logged-in operator. The brief is explicit that users should
-// see the actual error rather than "something went wrong", so this keeps the
-// code and exception message and drops only the trace.
+// see the actual error rather than "something went wrong", so the server's own
+// exception message is preferred and only the trace is dropped.
 func (e *APIError) SafeMessage() string {
-	switch {
-	case e.ExceptionMessage != "" && e.ErrorCode != "":
-		return e.ErrorCode + ": " + e.ExceptionMessage
-	case e.ExceptionMessage != "":
+	if e.ExceptionMessage != "" {
+		if e.ErrorCode != "" {
+			return e.ErrorCode + ": " + e.ExceptionMessage
+		}
 		return e.ExceptionMessage
-	case e.ErrorCode != "":
-		return e.ErrorCode
-	default:
-		return http.StatusText(e.Status)
 	}
+	if e.ErrorCode != "" {
+		if human, ok := codeMessages[e.ErrorCode]; ok {
+			return human
+		}
+		return e.ErrorCode
+	}
+	if text := http.StatusText(e.Status); text != "" {
+		return text
+	}
+	return "the game server returned an unexpected response"
 }
 
 // Known error codes the panel reacts to by name. The server defines many

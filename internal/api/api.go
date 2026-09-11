@@ -15,6 +15,8 @@ import (
 
 	"github.com/nomansheikh/7dtd-panel/internal/auth"
 	"github.com/nomansheikh/7dtd-panel/internal/config"
+	"github.com/nomansheikh/7dtd-panel/internal/events"
+	"github.com/nomansheikh/7dtd-panel/internal/sdtd"
 	"github.com/nomansheikh/7dtd-panel/internal/state"
 	"github.com/nomansheikh/7dtd-panel/internal/store"
 )
@@ -24,12 +26,32 @@ type Snapshotter interface {
 	Snapshot() state.Snapshot
 }
 
+// GameExecutor is the slice of the game client the API uses directly. The
+// poller owns everything read on a schedule; this is for operator-initiated
+// actions.
+type GameExecutor interface {
+	Execute(ctx context.Context, command string) (sdtd.CommandResult, error)
+}
+
+// CommandCatalogue supplies the server's command list, cached.
+type CommandCatalogue interface {
+	Get(ctx context.Context) ([]sdtd.Command, time.Time, error)
+}
+
+// EventFeed is the hub browser clients subscribe to.
+type EventFeed interface {
+	Subscribe(backlog int) ([]events.Event, <-chan events.Event, func())
+}
+
 // Deps are the collaborators a Server needs.
 type Deps struct {
 	Config   config.Config
 	Store    *store.Store
 	Sessions *auth.Sessions
 	State    Snapshotter
+	Game     GameExecutor
+	Commands CommandCatalogue
+	Events   EventFeed
 	Logger   *slog.Logger
 	Version  string
 	Now      func() time.Time
@@ -41,6 +63,9 @@ type Server struct {
 	store    *store.Store
 	sessions *auth.Sessions
 	state    Snapshotter
+	game     GameExecutor
+	commands CommandCatalogue
+	events   EventFeed
 	log      *slog.Logger
 	version  string
 	now      func() time.Time
@@ -63,6 +88,9 @@ func NewServer(d Deps) *Server {
 		store:    d.Store,
 		sessions: d.Sessions,
 		state:    d.State,
+		game:     d.Game,
+		commands: d.Commands,
+		events:   d.Events,
 		log:      log,
 		version:  d.Version,
 		now:      now,
@@ -86,6 +114,10 @@ func (s *Server) Routes() *http.ServeMux {
 	// Authenticated.
 	mux.Handle("GET /api/auth/me", s.requireAuth(http.HandlerFunc(s.handleMe)))
 	mux.Handle("GET /api/dashboard", s.requireAuth(http.HandlerFunc(s.handleDashboard)))
+	mux.Handle("GET /api/events", s.requireAuth(http.HandlerFunc(s.handleEvents)))
+	mux.Handle("GET /api/console/commands", s.requireAuth(http.HandlerFunc(s.handleConsoleCommands)))
+	mux.Handle("POST /api/console/execute", s.requireAuth(http.HandlerFunc(s.handleConsoleExecute)))
+	mux.Handle("GET /api/console/history", s.requireAuth(http.HandlerFunc(s.handleConsoleHistory)))
 
 	return mux
 }

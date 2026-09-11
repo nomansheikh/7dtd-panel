@@ -116,6 +116,9 @@ type Options struct {
 	Logger           *slog.Logger
 	// Now is overridable for tests.
 	Now func() time.Time
+	// OnStatusChange, when set, is called whenever the status transitions. It
+	// runs on the polling goroutine, so it must not block.
+	OnStatusChange func(from, to Status)
 }
 
 // Poller refreshes the snapshot in the background. It is safe for concurrent
@@ -126,6 +129,7 @@ type Poller struct {
 	threshold int
 	log       *slog.Logger
 	now       func() time.Time
+	onChange  func(from, to Status)
 
 	mu   sync.RWMutex
 	snap Snapshot
@@ -157,6 +161,7 @@ func New(opts Options) *Poller {
 	}
 	return &Poller{
 		client:         opts.Client,
+		onChange:       opts.OnStatusChange,
 		interval:       interval,
 		threshold:      threshold,
 		log:            logger,
@@ -247,6 +252,7 @@ func (p *Poller) pollStats(ctx context.Context) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
+	was := p.snap.Status
 	if err != nil {
 		p.snap.ConsecutiveFailures++
 		p.snap.LastError = safeError(err)
@@ -265,12 +271,12 @@ func (p *Poller) pollStats(ctx context.Context) {
 			"consecutiveFailures", p.snap.ConsecutiveFailures,
 			"status", string(p.snap.Status),
 			"error", err)
+		p.notify(was, p.snap.Status)
 		// Deliberately leaves Stats and StatsAt alone: the cached answer is
 		// still the best one available.
 		return
 	}
 
-	was := p.snap.Status
 	p.snap.ConsecutiveFailures = 0
 	p.snap.LastError = ""
 	p.snap.Status = StatusOnline
@@ -280,6 +286,16 @@ func (p *Poller) pollStats(ctx context.Context) {
 	if was != StatusOnline {
 		p.log.Info("game server reachable", "previousStatus", string(was))
 	}
+	p.notify(was, p.snap.Status)
+}
+
+// notify reports a status transition, ignoring no-op transitions. It is called
+// with the lock held, so the callback must not touch the poller.
+func (p *Poller) notify(from, to Status) {
+	if p.onChange == nil || from == to {
+		return
+	}
+	p.onChange(from, to)
 }
 
 func (p *Poller) pollInfo(ctx context.Context) {
