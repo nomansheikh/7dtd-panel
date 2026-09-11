@@ -1,0 +1,29 @@
+# Build output
+/dist/
+/web/dist/
+/7dtd-panel
+*.exe
+
+# Dependencies
+/node_modules/
+/web/node_modules/
+
+# Local runtime data
+/data/
+*.db
+*.db-shm
+*.db-wal
+
+# Secrets — the API token and admin password live here, never in git
+.env
+.env.*
+!.env.example
+
+# Go
+*.test
+/coverage.out
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
