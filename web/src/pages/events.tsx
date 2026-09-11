@@ -80,8 +80,7 @@ export function EventsPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-xl font-semibold">Events</h1>
-        <span className="text-sm text-muted-foreground">
+        <span className="stencil">
           {status === "open" ? "live" : "reconnecting"}
           {" · "}
           {events.length} received
@@ -119,7 +118,7 @@ export function EventsPage() {
           // scroll landing just short does not unpin it.
           pinnedToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
         }}
-        className="h-[32rem] overflow-y-auto rounded-md border border-border bg-card"
+        className="h-[32rem] overflow-y-auto panel rounded-md"
       >
         {visible.length === 0 ? (
           <p className="p-4 text-sm text-muted-foreground">

@@ -182,8 +182,7 @@ export function PlayersPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-xl font-semibold">Players</h1>
-        <span className="text-sm text-muted-foreground">
+        <span className="stencil">
           {online} online · {players.length} known
         </span>
         <Input
@@ -197,12 +196,12 @@ export function PlayersPage() {
       {isLoading && !data ? (
         <Skeleton className="h-64 w-full" />
       ) : players.length === 0 ? (
-        <p className="rounded-md border border-border bg-card p-6 text-sm text-muted-foreground">
+        <p className="panel rounded-md p-6 text-sm text-muted-foreground">
           Nobody has joined this server yet. Players appear here as soon as they connect, and stay
           listed after they leave.
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-md border border-border bg-card">
+        <div className="overflow-x-auto panel rounded-md">
           <Table>
             <TableHeader>
               {table.getHeaderGroups().map((group) => (

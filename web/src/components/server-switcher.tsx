@@ -1,5 +1,4 @@
-import { Check, ChevronsUpDown, Server } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Check, ChevronsUpDown, HardDrive } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -7,16 +6,9 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
+import { StatusDot } from "@/components/connection-status";
 import { useServers } from "@/hooks/use-servers";
-import { cn } from "@/lib/utils";
-import type { ServerStatus } from "@/lib/api";
-
-const DOT: Record<ServerStatus, string> = {
-  online: "bg-status-online",
-  degraded: "bg-status-degraded",
-  offline: "bg-status-offline",
-  unknown: "bg-status-unknown",
-};
 
 /**
  * Switches which game server the panel is acting on.
@@ -31,48 +23,59 @@ export function ServerSwitcher() {
     return null;
   }
 
+  const label = current?.name ?? currentId;
+
+  // One server is a label, not a control. Rendering it as a disabled button
+  // left something in the tab order that takes focus and then does nothing.
   if (servers.length === 1) {
     return (
-      <span className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Server className="size-4" />
-        {current?.name ?? currentId}
-      </span>
+      <div className="flex items-center gap-2 px-2 py-1.5" title={label}>
+        <HardDrive className="size-4 shrink-0 text-bone-faint" />
+        <div className="grid flex-1 leading-tight group-data-[collapsible=icon]:hidden">
+          <span className="stencil">Game server</span>
+          <span className="mt-1 truncate text-sm font-medium text-foreground">{label}</span>
+        </div>
+      </div>
     );
   }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2">
-          <span
-            aria-hidden
-            className={cn("size-2 rounded-full", DOT[current?.status ?? "unknown"])}
-          />
-          {current?.name ?? "Select a server"}
-          <ChevronsUpDown className="size-3.5 opacity-60" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-64">
-        <DropdownMenuLabel>Game servers</DropdownMenuLabel>
-        {servers.map((server) => (
-          <DropdownMenuItem
-            key={server.id}
-            onSelect={() => select(server.id)}
-            className="flex items-center gap-2"
-          >
-            <span aria-hidden className={cn("size-2 shrink-0 rounded-full", DOT[server.status])} />
-            <span className="flex-1 truncate">{server.name}</span>
-            {/* Player counts make the switcher useful at a glance rather than
-                just a list of names. */}
-            {server.status !== "unknown" && (
-              <span className="text-xs text-muted-foreground">
-                {server.players}/{server.maxPlayers || "?"}
-              </span>
-            )}
-            {server.id === currentId && <Check className="size-4" />}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <SidebarMenu>
+      <SidebarMenuItem>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <SidebarMenuButton size="lg" tooltip={label}>
+              <StatusDot status={current?.status ?? "unknown"} />
+              <div className="grid flex-1 text-left leading-tight">
+                <span className="stencil">Game server</span>
+                <span className="mt-1 truncate text-sm font-medium text-foreground">{label}</span>
+              </div>
+              <ChevronsUpDown className="ml-auto size-3.5 opacity-50" />
+            </SidebarMenuButton>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" side="right" className="w-64">
+            <DropdownMenuLabel className="stencil">Game servers</DropdownMenuLabel>
+            {servers.map((server) => (
+              <DropdownMenuItem
+                key={server.id}
+                onSelect={() => select(server.id)}
+                className="flex items-center gap-2"
+              >
+                <StatusDot status={server.status} />
+                <span className="flex-1 truncate">{server.name}</span>
+                {/* Player counts make the switcher useful at a glance rather
+                    than just a list of names. */}
+                {server.status !== "unknown" && (
+                  <span className="readout text-xs text-bone-faint">
+                    {server.players}/{server.maxPlayers || "?"}
+                  </span>
+                )}
+                {server.id === currentId && <Check className="size-4" />}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </SidebarMenuItem>
+    </SidebarMenu>
   );
 }

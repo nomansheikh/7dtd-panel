@@ -40,9 +40,8 @@ export function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-xl font-semibold">Settings</h1>
-        <p className="text-sm text-muted-foreground">
+      <header>
+        <p className="max-w-3xl text-sm text-muted-foreground">
           Everything the server will tell us about how this world is configured. Changes apply
           straight away, and are lost when the server restarts: the game holds them in memory and
           never writes them back to its config file.
@@ -135,7 +134,7 @@ function Section({
       )}
 
       {groups.map((group) => (
-        <section key={group.name} className="rounded-md border border-border bg-card">
+        <section key={group.name} className="panel rounded-md">
           <h2 className="border-b border-border px-5 py-3 text-sm font-semibold">
             {group.name}
             <span className="ml-2 font-normal text-muted-foreground">{group.settings.length}</span>

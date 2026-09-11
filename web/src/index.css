@@ -2,65 +2,137 @@
 @import "tw-animate-css";
 
 /*
- * The panel administers a survival game whose entire structure is a seven-day
- * countdown to a horde. So the day cycle is the interface's hero, and colour
- * carries meaning rather than decoration: exactly one saturated hue exists in
- * the whole UI, blood red, and it belongs to the blood moon alone. Everything
- * else is gun metal and bone.
+ * Fonts are vendored rather than fetched from a CDN. The panel is meant to run
+ * on a box in somebody's house, sometimes on a network with no route out, and
+ * an admin tool that degrades because fonts.googleapis.com is unreachable
+ * would be a poor joke given the rest of this codebase.
  *
- * Dark is the default, not a toggle: this gets opened at night, next to a
- * running game.
+ * Only the weight axis is pulled in; the italic and width files are never
+ * used. Each sheet declares its subsets with unicode-range, so a latin browser
+ * downloads one file per family.
+ */
+@import "@fontsource-variable/big-shoulders-display/wght";
+@import "@fontsource-variable/archivo/wght.css";
+@import "@fontsource/ibm-plex-mono/latin-400.css";
+@import "@fontsource/ibm-plex-mono/latin-500.css";
+
+/*
+ * The panel administers a survival game whose entire structure is a seven-day
+ * countdown to a horde, so the interface is keyed to that countdown and
+ * nothing else.
+ *
+ * --moon runs 0 to 1 across the cycle and is set on <html> from the live game
+ * clock. Everything atmospheric reads from it: the crimson bleed at the edges,
+ * the weight of the vignette, the warmth of the rules. On the first morning
+ * after a horde the panel is ash and bone. By the seventh night it has gone
+ * red, and you can tell how much time is left from across the room without
+ * reading a number.
+ *
+ * There is no light mode. This is a thing you open at night next to a running
+ * game.
  */
 :root {
-  --radius: 0.375rem;
+  --radius: 0.25rem;
 
-  /* Gun metal. Light enough to read as a material rather than a tinted
-     black, which is what every dark dashboard defaults to. */
-  --background: oklch(0.245 0.011 245);
-  --foreground: oklch(0.91 0.012 85);
+  /* How far through the blood moon cycle, 0 to 1. Set by the app. */
+  --moon: 0;
+  /* The same, on a curve, which is what colour reads from. See use-blood-moon. */
+  --moon-heat: 0;
+  /* 1 only while a blood moon is actually happening. */
+  --moon-night: 0;
 
-  --card: oklch(0.295 0.012 245);
-  --card-foreground: oklch(0.91 0.012 85);
+  /* Ash. Warm near-black rather than the blue-black every dark dashboard
+     defaults to, so the crimson has something to sit against. */
+  --ash-950: oklch(0.145 0.009 32);
+  --ash-900: oklch(0.183 0.011 32);
+  --ash-860: oklch(0.212 0.012 32);
+  --ash-820: oklch(0.247 0.013 32);
+  --ash-780: oklch(0.292 0.014 32);
+  --ash-700: oklch(0.36 0.014 32);
 
-  --popover: oklch(0.285 0.012 245);
-  --popover-foreground: oklch(0.91 0.012 85);
+  /* Bone. */
+  --bone: oklch(0.935 0.013 76);
+  --bone-dim: oklch(0.715 0.012 64);
+  --bone-faint: oklch(0.56 0.011 52);
 
-  /* Bone. The primary action is the lightest thing on the page rather than a
-     coloured one, so warmth stays reserved for the blood moon alone. */
-  --primary: oklch(0.89 0.014 85);
-  --primary-foreground: oklch(0.24 0.012 245);
+  /* The blood moon itself. Every saturated pixel in the interface is one of
+     these three, and they mean one thing. */
+  --crimson-deep: oklch(0.305 0.125 20);
+  --crimson: oklch(0.495 0.205 23);
+  --crimson-lit: oklch(0.645 0.238 26);
 
-  --secondary: oklch(0.34 0.013 245);
-  --secondary-foreground: oklch(0.91 0.012 85);
+  /* Ember, for warnings that are not the horde. */
+  --ember: oklch(0.755 0.152 66);
 
-  --muted: oklch(0.33 0.011 245);
-  --muted-foreground: oklch(0.72 0.011 240);
+  /* The page itself warms toward the horde. Painting crimson over a stubbornly
+     neutral surface only ever looks like a filter laid on top; moving the
+     surface is what makes the room feel different. */
+  --background: color-mix(
+    in oklab,
+    var(--ash-950),
+    var(--crimson-deep) calc(var(--moon-heat) * 16%)
+  );
+  --foreground: var(--bone);
 
-  --accent: oklch(0.36 0.014 245);
-  --accent-foreground: oklch(0.93 0.012 85);
+  --card: color-mix(in oklab, var(--ash-900), var(--crimson-deep) calc(var(--moon-heat) * 11%));
+  --card-foreground: var(--bone);
 
-  --destructive: oklch(0.53 0.2 27);
-  --destructive-foreground: oklch(0.96 0.01 85);
+  --popover: var(--ash-860);
+  --popover-foreground: var(--bone);
 
-  --border: oklch(0.38 0.013 245);
+  /* The primary action is bone rather than a colour, so that saturation stays
+     reserved for the horde. */
+  --primary: oklch(0.9 0.014 76);
+  --primary-foreground: var(--ash-950);
+
+  --secondary: var(--ash-820);
+  --secondary-foreground: var(--bone);
+
+  --muted: var(--ash-860);
+  --muted-foreground: var(--bone-dim);
+
+  --accent: var(--ash-820);
+  --accent-foreground: var(--bone);
+
+  --destructive: var(--crimson);
+  --destructive-foreground: oklch(0.97 0.01 76);
+
+  /* Rules warm towards crimson as the horde approaches. */
+  --border: color-mix(in oklab, var(--ash-820), var(--crimson) calc(var(--moon-heat) * 34%));
   /* Interactive boundaries need 3:1 against the background to satisfy WCAG
      1.4.11, which is a good deal lighter than a decorative divider. */
-  --input: oklch(0.55 0.014 245);
-  --ring: oklch(0.82 0.015 85);
+  --input: var(--ash-700);
+  /* Bone, not crimson. A crimson focus ring reads as an error, and it would
+     spend the one colour that is supposed to mean the horde. */
+  --ring: var(--bone);
 
-  /* The one saturated colour in the interface. Earned by meaning. */
-  --blood: oklch(0.52 0.21 26);
-  --blood-bright: oklch(0.62 0.23 27);
+  --sidebar: color-mix(
+    in oklab,
+    oklch(0.163 0.011 32),
+    var(--crimson-deep) calc(var(--moon-heat) * 16%)
+  );
+  --sidebar-foreground: var(--bone-dim);
+  --sidebar-primary: var(--crimson);
+  --sidebar-primary-foreground: oklch(0.97 0.01 76);
+  --sidebar-accent: var(--ash-860);
+  --sidebar-accent-foreground: var(--bone);
+  --sidebar-border: color-mix(
+    in oklab,
+    var(--ash-820),
+    var(--crimson) calc(var(--moon-heat) * 36%)
+  );
+  --sidebar-ring: var(--bone);
 
-  /* Status: field colours, deliberately muted rather than acid. */
-  --status-online: oklch(0.64 0.12 145);
-  --status-degraded: oklch(0.74 0.13 80);
-  --status-offline: oklch(0.58 0.19 27);
-  --status-unknown: oklch(0.55 0.01 245);
+  /* Status: field colours, deliberately muted rather than acid, and never
+     competing with the crimson for attention. */
+  --status-online: oklch(0.655 0.115 148);
+  --status-degraded: var(--ember);
+  --status-offline: var(--crimson-lit);
+  --status-unknown: var(--bone-faint);
 }
 
 @theme inline {
-  --radius-sm: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 1px);
   --radius-md: var(--radius);
   --radius-lg: calc(var(--radius) + 2px);
 
@@ -84,15 +156,70 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
 
-  --color-blood: var(--blood);
-  --color-blood-bright: var(--blood-bright);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --color-ash: var(--ash-900);
+  --color-ash-raised: var(--ash-860);
+  --color-bone: var(--bone);
+  --color-bone-dim: var(--bone-dim);
+  --color-bone-faint: var(--bone-faint);
+  --color-crimson: var(--crimson);
+  --color-crimson-lit: var(--crimson-lit);
+  --color-crimson-deep: var(--crimson-deep);
+  --color-ember: var(--ember);
   --color-status-online: var(--status-online);
   --color-status-degraded: var(--status-degraded);
   --color-status-offline: var(--status-offline);
   --color-status-unknown: var(--status-unknown);
 
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Inter, sans-serif;
-  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  /* Big Shoulders is a tall condensed display face: it holds a four-digit
+     readout at 96px without eating the line, and set in caps it reads as
+     stencilled signage rather than as a web heading. */
+  --font-display: "Big Shoulders Display Variable", "Oswald", ui-sans-serif, sans-serif;
+  --font-sans: "Archivo Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --animate-breathe: breathe 5s ease-in-out infinite;
+  --animate-rise: rise 0.5s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  --animate-bleed: bleed 7s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes bleed {
+  0%,
+  100% {
+    opacity: 0.75;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
 @layer base {
@@ -102,11 +229,22 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    font-optical-sizing: auto;
   }
 
   /* Keyboard focus must stay obvious on every interactive element. */
   :focus-visible {
     @apply outline-ring outline-2 outline-offset-2;
+  }
+
+  /* Headings are the display face by default, so a page does not have to
+     remember to ask for it. */
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: 0.01em;
   }
 }
 
@@ -116,8 +254,87 @@
    * and tightened because large numerals set at default tracking look slack.
    */
   .readout {
+    font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
-    letter-spacing: -0.025em;
+    letter-spacing: -0.02em;
+  }
+
+  /* A numeral meant to be read from across the room. */
+  .figure {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 0.85;
+    letter-spacing: -0.01em;
+  }
+
+  /*
+   * Section labels are stencilled: small, wide, and quiet enough that they
+   * frame the data rather than compete with it.
+   */
+  .stencil {
+    font-family: var(--font-display);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 0.75rem;
+    line-height: 1;
+    color: var(--bone-faint);
+  }
+
+  /*
+   * Panels are cut rather than rounded, and lit from the top edge. The hairline
+   * inside the top border is what stops a flat fill from reading as a hole in
+   * the page.
+   */
+  .panel {
+    background: linear-gradient(to bottom, color-mix(in oklab, var(--card), white 3%), var(--card));
+    border: 1px solid var(--border);
+    box-shadow:
+      inset 0 1px 0 0 color-mix(in oklab, white 6%, transparent),
+      0 1px 2px 0 oklch(0 0 0 / 0.4);
+  }
+
+  /* The horde's own panel: the same cut, bled through with crimson. */
+  /*
+   * The horde's own panel.
+   *
+   * It takes its identity from structure rather than fill: a lit border, a
+   * crimson hairline along the top edge, and a glow gathered at the right
+   * where the countdown sits. An earlier attempt washed the whole surface red
+   * and the day numeral stopped being readable, which is a poor trade for
+   * atmosphere on the one panel anybody actually reads.
+   */
+  .panel-moon {
+    position: relative;
+    background:
+      radial-gradient(
+        55% 130% at 108% 34%,
+        color-mix(in oklab, var(--crimson), transparent calc(80% - var(--moon-heat) * 32%)),
+        transparent 72%
+      ),
+      linear-gradient(to bottom, color-mix(in oklab, var(--card), white 3%), var(--card));
+    border: 1px solid
+      color-mix(in oklab, var(--border), var(--crimson-lit) calc(16% + var(--moon-heat) * 40%));
+    box-shadow:
+      inset 0 1px 0 0 color-mix(in oklab, white 7%, transparent),
+      0 0 calc(10px + var(--moon-heat) * 34px) calc(-6px - var(--moon-heat) * 4px)
+        color-mix(in oklab, var(--crimson), transparent calc(80% - var(--moon-heat) * 22%));
+  }
+
+  /* The one place in the interface allowed a literal red line. It brightens
+     left to right, so the eye is pulled towards the countdown. */
+  .panel-moon::before {
+    content: "";
+    position: absolute;
+    inset: -1px -1px auto;
+    height: 2px;
+    background: linear-gradient(
+      to right,
+      transparent,
+      color-mix(in oklab, var(--crimson-lit), transparent calc(72% - var(--moon-heat) * 62%)) 35%,
+      var(--crimson-lit) 100%
+    );
   }
 }
 

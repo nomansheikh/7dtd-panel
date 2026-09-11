@@ -16,6 +16,30 @@ const DOT: Record<ServerStatus, string> = {
   unknown: "bg-status-unknown",
 };
 
+const GLOW: Record<ServerStatus, string> = {
+  online: "shadow-[0_0_8px_var(--status-online)]",
+  degraded: "shadow-[0_0_8px_var(--status-degraded)]",
+  offline: "shadow-[0_0_8px_var(--status-offline)]",
+  unknown: "",
+};
+
+/** The status light, on its own, for places that have their own label. */
+export function StatusDot({ status, className }: { status: ServerStatus; className?: string }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "size-2 shrink-0 rounded-full",
+        DOT[status],
+        GLOW[status],
+        // Only a live connection pulses. A stopped clock should look stopped.
+        status === "online" && "animate-breathe",
+        className,
+      )}
+    />
+  );
+}
+
 interface Props {
   status: ServerStatus;
   ageSeconds: number;
@@ -29,19 +53,11 @@ interface Props {
  */
 export function ConnectionStatus({ status, ageSeconds, stale }: Props) {
   return (
-    <div className="flex items-center gap-2 text-sm">
-      <span
-        aria-hidden
-        className={cn(
-          "size-2 shrink-0 rounded-full",
-          DOT[status],
-          // Only a live connection pulses. A stopped clock should look stopped.
-          status === "online" && "animate-pulse",
-        )}
-      />
-      <span className="text-foreground">{LABELS[status]}</span>
+    <div className="flex items-center gap-2 text-xs">
+      <StatusDot status={status} />
+      <span className="text-bone-dim">{LABELS[status]}</span>
       {stale && status !== "unknown" && (
-        <span className="text-muted-foreground readout">showing {formatAge(ageSeconds)}</span>
+        <span className="readout text-bone-faint">showing {formatAge(ageSeconds)}</span>
       )}
     </div>
   );

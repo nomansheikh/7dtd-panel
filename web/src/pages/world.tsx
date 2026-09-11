@@ -35,7 +35,7 @@ function Panel({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-md border border-border bg-card p-5">
+    <section className="panel rounded-md p-5">
       <h2 className="font-semibold">{title}</h2>
       <p className="mt-1 mb-4 text-sm text-muted-foreground">{description}</p>
       {children}
@@ -91,8 +91,6 @@ export function WorldPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold">World</h1>
-
       <div className="grid gap-6 lg:grid-cols-2">
         <TimeControls dashboard={dashboard} serverId={serverId} onAsk={ask} />
         <WeatherControls

@@ -137,7 +137,6 @@ export function ConsolePage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-xl font-semibold">Console</h1>
         <Button variant="outline" size="sm" onClick={() => setPaletteOpen(true)}>
           Browse commands
           <kbd className="ml-2 text-xs text-muted-foreground">⌘K</kbd>
@@ -151,7 +150,7 @@ export function ConsolePage() {
 
       <div
         ref={scrollRef}
-        className="h-[28rem] overflow-y-auto rounded-md border border-border bg-card p-4 font-mono text-sm"
+        className="h-[28rem] overflow-y-auto panel rounded-md p-4 font-mono text-sm"
       >
         {lines.length === 0 && (
           <p className="text-muted-foreground">
