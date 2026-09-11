@@ -1,0 +1,97 @@
+name: Bug report
+description: Something in the panel behaves incorrectly.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please redact secrets before pasting anything: the
+        `X-SDTD-API-SECRET` header, and any output from
+        `/api/webapitokens`, which returns token secrets in plaintext.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you expected, and what happened instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open the Players page
+        2. Click Teleport on an online player
+        3. ...
+    validations:
+      required: true
+
+  - type: input
+    id: panel-version
+    attributes:
+      label: Panel version
+      description: The image tag or commit you are running, e.g. v0.2.1 or ghcr.io/...@sha256:...
+    validations:
+      required: true
+
+  - type: input
+    id: game-version
+    attributes:
+      label: Game server version
+      description: Output of the `version` console command, e.g. V 3.2.0 (b10)
+    validations:
+      required: true
+
+  - type: textarea
+    id: mods
+    attributes:
+      label: Installed mods and versions
+      description: The `version` command lists these, or use GET /api/mods.
+      placeholder: |
+        TFP_Harmony 1.1.0.4, Allocs_Commands 30, Allocs_Core 38,
+        Allocs_Webinterface 52
+    validations:
+      required: true
+
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: How are you running the panel?
+      options:
+        - Docker image
+        - docker compose
+        - Built from source
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: same-host
+    attributes:
+      label: Is the panel on the same host as the game server?
+      options:
+        - "No, separate hosts"
+        - "Yes, same host"
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Panel logs
+      description: Relevant log output. Set PANEL_LOG_LEVEL=debug for more detail.
+      render: text
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Environment configuration
+      description: Your env vars with secrets removed.
+      render: text
+      placeholder: |
+        SDTD_HOST=10.0.0.5
+        SDTD_API_PORT=8080
+        SDTD_API_TOKEN_NAME=panel
+        SDTD_API_TOKEN_SECRET=<redacted>

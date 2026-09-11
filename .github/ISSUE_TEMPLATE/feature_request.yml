@@ -1,0 +1,35 @@
+name: Feature request
+description: Suggest a capability the panel should have.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Describe the situation you are in, not just the feature you want.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What should it do?
+    validations:
+      required: true
+
+  - type: textarea
+    id: api
+    attributes:
+      label: Which server API or console command would this need?
+      description: >-
+        Optional, but it speeds things up a lot. Many plausible features are
+        impossible because the endpoint is read-only or the field is always
+        null — the design doc records the ones already known. If you have
+        checked GET /api/command or the OpenAPI spec, say what you found.
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope
+      options:
+        - label: I have checked the design doc's "Limits" section to see whether this is known to be impossible

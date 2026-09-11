@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or idea
+    url: https://github.com/nomansheikh/7dtd-panel/discussions
+    about: Ask a question or float an idea before opening an issue.
+  - name: Security vulnerability
+    url: https://github.com/nomansheikh/7dtd-panel/security/advisories/new
+    about: Report privately. Please do not open a public issue.
