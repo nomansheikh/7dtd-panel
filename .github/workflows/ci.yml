@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: gofmt
+        run: |
+          # Generated files are excluded; they are the generator's output, not ours.
+          unformatted=$(gofmt -l $(git ls-files '*.go' | grep -v '\.gen\.go$'))
+          if [ -n "$unformatted" ]; then
+            echo "These files need gofmt:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go test
+        run: go test -race -count=1 ./...
+
+      - name: Build
+        run: CGO_ENABLED=0 go build ./...
+
+  spec-drift:
+    name: Spec drift
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # The bundled spec and the generated client are committed so a clean
+      # checkout builds offline. That only helps if they actually match the
+      # vendored snapshot, so regenerate and fail on any diff.
+      - name: Regenerate from the vendored snapshot
+        run: make generate
+
+      - name: Fail if the committed output is stale
+        run: |
+          if ! git diff --exit-code --stat; then
+            echo
+            echo "The committed spec bundle or generated client is out of date."
+            echo "Run 'make generate' and commit the result."
+            exit 1
+          fi
