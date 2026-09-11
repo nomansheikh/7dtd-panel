@@ -1,0 +1,150 @@
+openapi: 3.1.0
+info:
+  title: WebAPI Tokens
+  version: '1'
+
+components:
+  schemas:
+    TypeWebApiTokenName:
+      type: string
+    
+    WebApiTokenElement:
+      type: object
+      properties:
+        name:
+          $ref: '#/components/schemas/TypeWebApiTokenName'
+        secret:
+          type: string
+        permissionLevel:
+          type: integer
+          description: Permission level of the token
+      required:
+        - name
+        - secret
+        - permissionLevel
+
+    WebApiTokenList:
+      type: array
+      items:
+        $ref: '#/components/schemas/WebApiTokenElement'
+
+
+  requestBodies:
+    WebApiTokenBodyIn:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              secret:
+                string
+              permissionLevel:
+                type: integer
+            required:
+              - secret
+              - permissionLevel
+      required: true
+
+
+  parameters:
+    WebApiTokenNamePathParameter:
+      name: apiTokenName
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/TypeWebApiTokenName'
+
+
+paths:
+  /api/webapitokens:
+    get:
+      tags:
+        - Permissions
+      summary: WebAPI token list
+      description: Fetch a list of all WebAPI tokens
+      operationId: WebApiTokens.get
+      responses:
+        200:
+          description: List of API tokens
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/WebApiTokenList'
+                  meta:
+                    $ref: './openapi.yaml#/components/schemas/ResultEnvelopeMeta'
+                required:
+                  - data
+                  - meta
+        403:
+          $ref: './openapi.yaml#/components/responses/Unauthorized'
+      security:
+        - apiTokenName: [ ]
+          apiTokenSecret: [ ]
+        - sessionCookie: [ ]
+
+
+  /api/webapitokens/{apiTokenName}:
+#    get:
+#      tags:
+#        - Permissions
+#      summary: Marker show
+#      description: Fetch a single defined map marker
+#      operationId: blacklist.get.id
+#      parameters:
+#        - $ref: '#/components/parameters/MarkerIdParameter'
+#      responses:
+#        200:
+#          description: Single found marker
+#          $ref: '#/components/responses/MarkersBodyOut'
+#        404:
+#          description: Marker ID not found, errorCode will be 'ID_NOT_FOUND'
+#          $ref: '#/components/responses/HttpEmptyEnvelopedResponse'
+
+    post:
+      tags:
+        - Permissions
+      summary: WebAPI token create
+      description: Create or update a WebAPI token
+      operationId: WebApiTokens.post.id
+      parameters:
+        - $ref: '#/components/parameters/WebApiTokenNamePathParameter'
+      requestBody:
+        $ref: '#/components/requestBodies/WebApiTokenBodyIn'
+      responses:
+        201:
+          description: Token created or updated
+          $ref: './openapi.yaml#/components/responses/HttpEmptyEnvelopedResponse'
+        400:
+          description: Invalid request body, errorCode will be one of 'NO_NAME', 'NO_OR_INVALID_SECRET' or 'NO_OR_INVALID_PERMISSION_LEVEL'
+          $ref: './openapi.yaml#/components/responses/HttpEmptyEnvelopedResponse'
+        403:
+          $ref: './openapi.yaml#/components/responses/Unauthorized'
+      security:
+        - apiTokenName: []
+          apiTokenSecret: []
+        - sessionCookie: []
+
+    delete:
+      tags:
+        - Permissions
+      summary: WebAPI token delete
+      description: Delete a single WebAPI token
+      operationId: WebApiTokens.delete.id
+      parameters:
+        - $ref: '#/components/parameters/WebApiTokenNamePathParameter'
+      responses:
+        204:
+          description: Deleted token
+          $ref: './openapi.yaml#/components/responses/HttpEmptyEnvelopedResponse'
+        404:
+          description: Token not found
+          $ref: './openapi.yaml#/components/responses/HttpEmptyEnvelopedResponse'
+        403:
+          $ref: './openapi.yaml#/components/responses/Unauthorized'
+      security:
+        - apiTokenName: []
+          apiTokenSecret: []
+        - sessionCookie: []

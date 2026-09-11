@@ -1,0 +1,58 @@
+openapi: 3.1.0
+info:
+  title: Animal
+  version: '1'
+
+components:
+  schemas:
+    AnimalElement:
+      type: object
+      properties:
+        id:
+          $ref: './openapi.yaml#/components/schemas/TypeEntityId'
+        name:
+          type: string
+          examples:
+            - animalStag
+        position:
+          $ref: './openapi.yaml#/components/schemas/TypeVector3i'
+      required:
+        - id
+        - name
+        - position
+
+    AnimalList:
+      type: array
+      items:
+        $ref: '#/components/schemas/AnimalElement'
+
+
+paths:
+  /api/animal:
+    get:
+      tags:
+        - WorldState
+      summary: Animals list
+      description: Fetch a list of the currently spawned (non-hostile) animals in the world
+      operationId: animal.get
+      responses:
+        200:
+          description: List of animals
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/AnimalList'
+                  meta:
+                    $ref: './openapi.yaml#/components/schemas/ResultEnvelopeMeta'
+                required:
+                  - data
+                  - meta
+        403:
+          $ref: './openapi.yaml#/components/responses/Unauthorized'
+      security:
+        - apiTokenName: []
+          apiTokenSecret: []
+        - sessionCookie: []

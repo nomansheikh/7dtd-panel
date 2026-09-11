@@ -1,0 +1,235 @@
+openapi: 3.1.0
+info:
+  title: Markers
+  version: '1'
+
+components:
+  schemas:
+    MarkerId:
+      type: string
+      format: uuid
+      description: Unique identifier of the marker
+
+    MarkersElement:
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/MarkerId'
+        x:
+          type: integer
+          examples:
+            - -57
+        y:
+          type: integer
+          examples:
+            - 321
+        name:
+          type:
+            - string
+            - 'null'
+          examples:
+            - My House
+          description: Name shown with the marker
+        icon:
+          type:
+            - string
+            - 'null'
+          format: uri
+          examples:
+            - https://upload.wikimedia.org/wikipedia/commons/thumb/1/11/Blue_question_mark_icon.svg/1200px-Blue_question_mark_icon.svg.png
+          description: Icon used for the marker
+      required:
+        - id
+        - x
+        - y
+        - name
+        - icon
+
+    MarkersList:
+      type: array
+      items:
+        $ref: '#/components/schemas/MarkersElement'
+
+
+  requestBodies:
+    MarkersBodyIn:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              x:
+                type: integer
+                examples:
+                  - -43
+              y:
+                type: integer
+                examples:
+                  - 842
+              name:
+                type:
+                  - string
+                  - 'null'
+                examples:
+                  - My House
+              icon:
+                type:
+                  - string
+                  - 'null'
+                format: uuid
+                examples:
+                  - https://upload.wikimedia.org/wikipedia/commons/thumb/1/11/Blue_question_mark_icon.svg/1200px-Blue_question_mark_icon.svg.png
+            required:
+              - x
+              - y
+      required: true
+
+
+  responses:
+    MarkersBodyOut:
+      description: Found marker
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/MarkersList'
+              meta:
+                $ref: './openapi.yaml#/components/schemas/ResultEnvelopeMeta'
+            required:
+              - data
+              - meta
+
+    MarkersIdOut:
+      description: Created marker's ID
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                type: string
+                format: uuid
+              meta:
+                $ref: './openapi.yaml#/components/schemas/ResultEnvelopeMeta'
+            required:
+              - data
+              - meta
+
+
+  parameters:
+    MarkerIdParameter:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: ID of marker to fetch
+
+
+paths:
+  /api/markers:
+    get:
+      tags:
+        - Map
+      summary: Markers list
+      description: Fetch a list of all defined map markers
+      operationId: markers.get
+      responses:
+        200:
+          description: List of found markers
+          $ref: '#/components/responses/MarkersBodyOut'
+
+    post:
+      tags:
+        - Map
+      summary: Marker create
+      description: Create a new map marker
+      operationId: markers.post
+      requestBody:
+        $ref: '#/components/requestBodies/MarkersBodyIn'
+      responses:
+        201:
+          description: Marker with updated values
+          $ref: '#/components/responses/MarkersIdOut'
+        400:
+          description: >-
+            Invalid request body, errorCode will be one of 'NO_OR_INVALID_X',
+            'NO_OR_INVALID_Y'
+          $ref: './openapi.yaml#/components/responses/HttpEmptyEnvelopedResponse'
+        403:
+          $ref: './openapi.yaml#/components/responses/Unauthorized'
+      security:
+        - apiTokenName: []
+          apiTokenSecret: []
+        - sessionCookie: []
+
+  /api/markers/{id}:
+    get:
+      tags:
+        - Map
+      summary: Marker show
+      description: Fetch a single defined map marker
+      operationId: markers.get.id
+      parameters:
+        - $ref: '#/components/parameters/MarkerIdParameter'
+      responses:
+        200:
+          description: Single found marker
+          $ref: '#/components/responses/MarkersBodyOut'
+        404:
+          description: Marker ID not found, errorCode will be 'ID_NOT_FOUND'
+          $ref: './openapi.yaml#/components/responses/HttpEmptyEnvelopedResponse'
+
+    put:
+      tags:
+        - Map
+      summary: Marker update
+      description: Update a single defined map marker
+      operationId: markers.put.id
+      parameters:
+        - $ref: '#/components/parameters/MarkerIdParameter'
+      requestBody:
+        $ref: '#/components/requestBodies/MarkersBodyIn'
+      responses:
+        200:
+          description: Marker with updated values
+          $ref: '#/components/responses/MarkersBodyOut'
+        400:
+          description: >-
+            Invalid request body, errorCode will be one of 'NO_OR_INVALID_X',
+            'NO_OR_INVALID_Y'
+          $ref: './openapi.yaml#/components/responses/HttpEmptyEnvelopedResponse'
+        404:
+          description: Marker ID not found, errorCode will be 'ID_NOT_FOUND'
+          $ref: './openapi.yaml#/components/responses/HttpEmptyEnvelopedResponse'
+        403:
+          $ref: './openapi.yaml#/components/responses/Unauthorized'
+      security:
+        - apiTokenName: []
+          apiTokenSecret: []
+        - sessionCookie: []
+
+    delete:
+      tags:
+        - Map
+      summary: Marker delete
+      description: Delete a single defined map marker
+      operationId: markers.delete.id
+      parameters:
+        - $ref: '#/components/parameters/MarkerIdParameter'
+      responses:
+        204:
+          description: Deleted marker
+          $ref: './openapi.yaml#/components/responses/HttpEmptyEnvelopedResponse'
+        404:
+          description: Marker ID not found
+          $ref: './openapi.yaml#/components/responses/HttpEmptyEnvelopedResponse'
+        403:
+          $ref: './openapi.yaml#/components/responses/Unauthorized'
+      security:
+        - apiTokenName: []
+          apiTokenSecret: []
+        - sessionCookie: []

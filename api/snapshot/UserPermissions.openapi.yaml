@@ -1,0 +1,271 @@
+openapi: 3.1.0
+info:
+  title: User Permissions
+  version: '1'
+
+components:
+  schemas:
+    UserPermissionElement:
+      type: object
+      properties:
+        name:
+          type: string
+          examples:
+            - TheFunPimp
+          description: Name of the player for display purposes. Can be empty.
+        userId:
+          $ref: './openapi.yaml#/components/schemas/TypeUserIdObject'
+        permissionLevel:
+          type: integer
+      required:
+        - name
+        - userId
+        - permissionLevel
+
+    UserPermissionList:
+      type: array
+      items:
+        $ref: '#/components/schemas/UserPermissionElement'
+        
+    GroupPermissionElement:
+      type: object
+      properties:
+        name:
+          type: string
+          examples:
+            - Steam Universe
+          description: Name of the group for display purposes. Can be empty.
+        groupId:
+          type: string
+          examples:
+            - '103582791434672565'
+        permissionLevelMods:
+          type: integer
+          examples:
+            - 10
+          description: Permission levels that mods of the group get assigned
+        permissionLevelNormal:
+          type: integer
+          examples:
+            - 500
+          description: Permission levels that regular members of the group get assigned
+      required:
+        - name
+        - groupId
+        - permissionLevelMods
+        - permissionLevelNormal
+
+    GroupPermissionList:
+      type: array
+      items:
+        $ref: '#/components/schemas/GroupPermissionElement'
+    
+    UserPermissionsObject:
+      type: object
+      properties:
+        users:
+          $ref: '#/components/schemas/UserPermissionList'
+        groups:
+          $ref: '#/components/schemas/GroupPermissionList'
+      required:
+        - users
+        - groups
+
+    TypeGroupIdString:
+      type: string
+      examples:
+        - '103582791434672565'
+          
+    UserPermissionPostBodyUserObject:
+      type: object
+      properties:
+        permissionLevel:
+          type: integer
+        name:
+          type: string
+      required:
+        - permissionLevel
+
+    UserPermissionPostBodyGroupObject:
+      type: object
+      properties:
+        permissionLevelMods:
+          type: integer
+          examples:
+            - 10
+        permissionLevelNormal:
+          type: integer
+          examples:
+            - 500
+        name:
+          type: string
+          examples:
+            - Steam Universe
+      required:
+        - permissionLevelMods
+        - permissionLevelNormal
+
+
+  parameters: 
+    UserIdParameter:
+      name: id
+      in: path
+      required: true
+      schema:
+        $ref: './openapi.yaml#/components/schemas/TypeUserIdString'
+
+    GroupIdParameter:
+      name: id
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/TypeGroupIdString'
+
+
+  requestBodies:
+    UserPermissionBodyIn:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/UserPermissionPostBodyUserObject'
+      required: true
+
+    GroupPermissionBodyIn:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/UserPermissionPostBodyGroupObject'
+      required: true
+
+
+paths:
+  /api/userpermissions:
+    get:
+      tags:
+        - Permissions
+      summary: User permission list
+      description: Fetch a list of all user / group permissions
+      operationId: userpermissions.get
+      responses:
+        200:
+          description: List of user permissions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/UserPermissionsObject'
+                  meta:
+                    $ref: './openapi.yaml#/components/schemas/ResultEnvelopeMeta'
+                required:
+                  - data
+                  - meta
+        403:
+          $ref: './openapi.yaml#/components/responses/Unauthorized'
+      security:
+        - apiTokenName: [ ]
+          apiTokenSecret: [ ]
+        - sessionCookie: [ ]
+
+
+  /api/userpermissions/user/{id}:
+    post:
+      tags:
+        - Permissions
+      summary: User permission create
+      description: Create or update a user permission
+      operationId: userpermissions.post.user.id
+      parameters:
+        - $ref: '#/components/parameters/UserIdParameter'
+      requestBody:
+        $ref: '#/components/requestBodies/UserPermissionBodyIn'
+      responses:
+        201:
+          description: User permission created or updated
+          $ref: './openapi.yaml#/components/responses/HttpEmptyEnvelopedResponse'
+        400:
+          description: Invalid request, errorCode will be one of 'NO_USER_OR_GROUP', 'INVALID_USER' or 'NO_OR_INVALID_PERMISSION_LEVEL'
+          $ref: './openapi.yaml#/components/responses/HttpEmptyEnvelopedResponse'
+        403:
+          $ref: './openapi.yaml#/components/responses/Unauthorized'
+      security:
+        - apiTokenName: []
+          apiTokenSecret: []
+        - sessionCookie: []
+
+    delete:
+      tags:
+        - Permissions
+      summary: User permission delete
+      description: Delete a single user permission
+      operationId: userpermissions.delete.user.id
+      parameters:
+        - $ref: '#/components/parameters/UserIdParameter'
+      responses:
+        204:
+          description: Deleted user permission
+          $ref: './openapi.yaml#/components/responses/HttpEmptyEnvelopedResponse'
+        400:
+          description: Invalid request, errorCode will be one of 'NO_USER_OR_GROUP' or 'INVALID_USER'
+          $ref: './openapi.yaml#/components/responses/HttpEmptyEnvelopedResponse'
+        404:
+          description: User ID not found
+          $ref: './openapi.yaml#/components/responses/HttpEmptyEnvelopedResponse'
+        403:
+          $ref: './openapi.yaml#/components/responses/Unauthorized'
+      security:
+        - apiTokenName: []
+          apiTokenSecret: []
+        - sessionCookie: []
+
+
+  /api/userpermissions/group/{id}:
+    post:
+      tags:
+        - Permissions
+      summary: Group permission create
+      description: Create or update a group permission
+      operationId: userpermissions.post.group.id
+      parameters:
+        - $ref: '#/components/parameters/GroupIdParameter'
+      requestBody:
+        $ref: '#/components/requestBodies/GroupPermissionBodyIn'
+      responses:
+        201:
+          description: Group permission created or updated
+          $ref: './openapi.yaml#/components/responses/HttpEmptyEnvelopedResponse'
+        400:
+          description: Invalid request, errorCode will be one of 'NO_USER_OR_GROUP', 'INVALID_GROUP', 'NO_OR_INVALID_PERMISSION_LEVEL_MODS' or 'NO_OR_INVALID_PERMISSION_LEVEL_NORMAL'
+          $ref: './openapi.yaml#/components/responses/HttpEmptyEnvelopedResponse'
+        403:
+          $ref: './openapi.yaml#/components/responses/Unauthorized'
+      security:
+        - apiTokenName: []
+          apiTokenSecret: []
+        - sessionCookie: []
+
+    delete:
+      tags:
+        - Permissions
+      summary: Group permission delete
+      description: Delete a single group permission
+      operationId: userpermissions.delete.group.id
+      parameters:
+        - $ref: '#/components/parameters/GroupIdParameter'
+      responses:
+        204:
+          description: Deleted group permission
+          $ref: './openapi.yaml#/components/responses/HttpEmptyEnvelopedResponse'
+        400:
+          description: Invalid request, errorCode will be one of 'NO_USER_OR_GROUP', 'INVALID_GROUP'
+          $ref: './openapi.yaml#/components/responses/HttpEmptyEnvelopedResponse'
+        404:
+          description: Group ID not found
+          $ref: './openapi.yaml#/components/responses/HttpEmptyEnvelopedResponse'
+        403:
+          $ref: './openapi.yaml#/components/responses/Unauthorized'
+      security:
+        - apiTokenName: []
+          apiTokenSecret: []
+        - sessionCookie: []

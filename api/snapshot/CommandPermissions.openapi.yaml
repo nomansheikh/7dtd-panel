@@ -1,0 +1,155 @@
+openapi: 3.1.0
+info:
+  title: Command Permissions
+  version: '1'
+
+components:
+  schemas:
+    TypeCommandName:
+      type: string
+      pattern: '^[a-zA-Z0-9_-]+$'
+      examples:
+        - listplayers
+      description: Name of the command. Can be any of the command name variants.
+    
+    CommandPermissionElement:
+      type: object
+      properties:
+        command:
+          $ref: '#/components/schemas/TypeCommandName'
+        permissionLevel:
+          type: integer
+          description: Permission level of the command
+        default:
+          type: boolean
+          description: Whether the permission level is the default value for the command
+      required:
+        - command
+        - permissionLevel
+        - default
+
+    CommandPermissionList:
+      type: array
+      items:
+        $ref: '#/components/schemas/CommandPermissionElement'
+
+
+  requestBodies:
+    CommandPermissionBodyIn:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              permissionLevel:
+                type: integer
+            required:
+              - permissionLevel
+      required: true
+
+
+  parameters:
+    CommandNamePathParameter:
+      name: command
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/TypeCommandName'
+
+
+paths:
+  /api/commandpermissions:
+    get:
+      tags:
+        - Permissions
+      summary: Command permission list
+      description: Fetch a list of all command permissions
+      operationId: commandpermission.get
+      responses:
+        200:
+          description: List of command permissions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/CommandPermissionList'
+                  meta:
+                    $ref: './openapi.yaml#/components/schemas/ResultEnvelopeMeta'
+                required:
+                  - data
+                  - meta
+        403:
+          $ref: './openapi.yaml#/components/responses/Unauthorized'
+      security:
+        - apiTokenName: [ ]
+          apiTokenSecret: [ ]
+        - sessionCookie: [ ]
+
+
+  /api/commandpermissions/{command}:
+#    get:
+#      tags:
+#        - Permissions
+#      summary: Marker show
+#      description: Fetch a single defined map marker
+#      operationId: blacklist.get.id
+#      parameters:
+#        - $ref: '#/components/parameters/MarkerIdParameter'
+#      responses:
+#        200:
+#          description: Single found marker
+#          $ref: '#/components/responses/MarkersBodyOut'
+#        404:
+#          description: Marker ID not found, errorCode will be 'ID_NOT_FOUND'
+#          $ref: '#/components/responses/HttpEmptyEnvelopedResponse'
+
+    post:
+      tags:
+        - Permissions
+      summary: Command permission create
+      description: Create or update a command permission override
+      operationId: commandpermission.post.id
+      parameters:
+        - $ref: '#/components/parameters/CommandNamePathParameter'
+      requestBody:
+        $ref: '#/components/requestBodies/CommandPermissionBodyIn'
+      responses:
+        201:
+          description: Command permission override created or updated
+          $ref: './openapi.yaml#/components/responses/HttpEmptyEnvelopedResponse'
+        400:
+          description: Invalid request body, errorCode will be one of 'NO_COMMAND' or 'NO_OR_INVALID_PERMISSION_LEVEL'
+          $ref: './openapi.yaml#/components/responses/HttpEmptyEnvelopedResponse'
+        404:
+          description: Specified command not found, errorCode will be 'UNKNOWN_COMMAND'
+          $ref: './openapi.yaml#/components/responses/HttpEmptyEnvelopedResponse'
+        403:
+          $ref: './openapi.yaml#/components/responses/Unauthorized'
+      security:
+        - apiTokenName: []
+          apiTokenSecret: []
+        - sessionCookie: []
+
+    delete:
+      tags:
+        - Permissions
+      summary: Command permission delete
+      description: Delete a single command permission override
+      operationId: commandpermission.delete.id
+      parameters:
+        - $ref: '#/components/parameters/CommandNamePathParameter'
+      responses:
+        204:
+          description: Deleted command permission override
+          $ref: './openapi.yaml#/components/responses/HttpEmptyEnvelopedResponse'
+        404:
+          description: Command not found or no permission override defined so far
+          $ref: './openapi.yaml#/components/responses/HttpEmptyEnvelopedResponse'
+        403:
+          $ref: './openapi.yaml#/components/responses/Unauthorized'
+      security:
+        - apiTokenName: []
+          apiTokenSecret: []
+        - sessionCookie: []

@@ -1,0 +1,144 @@
+openapi: 3.1.0
+info:
+  title: GamePrefs
+  version: '1'
+
+components:
+  schemas:
+    GamePrefElementInt:
+      type: object
+      properties:
+        name:
+          type: string
+          examples:
+            - WebDashboardPort
+        type:
+          type: string
+          const: 'int'
+        value:
+          type: integer
+          examples:
+            - 8000
+        default:
+          type: integer
+          examples:
+            - 8080
+      required:
+        - name
+        - type
+        - value
+        - default
+
+    GamePrefElementFloat:
+      type: object
+      properties:
+        name:
+          type: string
+          examples:
+            - SaveDataLimit
+        type:
+          type: string
+          const: 'float'
+        value:
+          type: number
+          format: float
+          examples:
+            - 150
+        default:
+          type: number
+          format: float
+          examples:
+            - -1
+      required:
+        - name
+        - type
+        - value
+        - default
+
+    GamePrefElementBool:
+      type: object
+      properties:
+        name:
+          type: string
+          examples:
+            - EnableMapRendering
+        type:
+          type: string
+          const: 'bool'
+        value:
+          type: boolean
+          examples:
+            - true
+        default:
+          type: boolean
+          examples:
+            - false
+      required:
+        - name
+        - type
+        - value
+        - default
+
+    GamePrefElementString:
+      type: object
+      properties:
+        name:
+          type: string
+          examples:
+            - GameWorld
+        type:
+          type: string
+          const: 'string'
+        value:
+          type: string
+          examples:
+            - Navezgane
+        default:
+          type: string
+          examples:
+            - ''
+      required:
+        - name
+        - type
+        - value
+        - default
+
+    GamePrefList:
+      type: array
+      items:
+        anyOf:
+          - $ref: '#/components/schemas/GamePrefElementInt'
+          - $ref: '#/components/schemas/GamePrefElementFloat'
+          - $ref: '#/components/schemas/GamePrefElementBool'
+          - $ref: '#/components/schemas/GamePrefElementString'
+
+
+paths:
+  /api/gameprefs:
+    get:
+      tags:
+        - ServerState
+      summary: GamePrefs list
+      description: Fetch a list of GamePrefs
+      operationId: GamePrefs.get
+      responses:
+        200:
+          description: List of GamePrefs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/GamePrefList'
+                  meta:
+                    $ref: './openapi.yaml#/components/schemas/ResultEnvelopeMeta'
+                required:
+                  - data
+                  - meta
+        403:
+          $ref: './openapi.yaml#/components/responses/Unauthorized'
+      security:
+        - apiTokenName: [ ]
+          apiTokenSecret: [ ]
+        - sessionCookie: [ ]

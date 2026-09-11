@@ -1,0 +1,176 @@
+openapi: 3.1.0
+info:
+  title: Player
+  version: '1'
+
+components:
+  schemas:
+    PlayerElement:
+      type: object
+      properties:
+        entityId:
+          $ref: './openapi.yaml#/components/schemas/TypeEntityId'
+        name:
+          type: string
+        platformId:
+          $ref: './openapi.yaml#/components/schemas/TypeUserIdObject'
+        crossplatformId:
+          $ref: './openapi.yaml#/components/schemas/TypeUserIdObject'
+        totalPlayTimeSeconds:
+          type: 'null'
+        lastOnline:
+          type: 'null'
+        online:
+          type: boolean
+          const: true
+        ip:
+          type:
+            - string
+            - 'null'
+        ping:
+          type:
+            - integer
+            - 'null'
+        position:
+          oneOf:
+            - $ref: './openapi.yaml#/components/schemas/TypeVector3i'
+            - type: 'null'
+        level:
+          type: 'null'
+        health:
+          type: integer
+        stamina:
+          type: number
+          format: float
+        score:
+          type: integer
+        deaths:
+          type: integer
+        kills:
+          type: object
+          properties:
+            zombies:
+              type: integer
+            players:
+              type: integer
+          required:
+            - zombies
+            - players
+        banned:
+          type: object
+          properties:
+            banActive:
+              type: boolean
+            reason:
+              type:
+                - string
+                - 'null'
+            until:
+              oneOf:
+                - type: string
+                  format: date-time
+                - type: 'null'
+          required:
+            - banActive
+            - reason
+            - until
+      required:
+        - entityId
+        - name
+        - platformId
+        - crossplatformId
+        - totalPlayTimeSeconds
+        - lastOnline
+        - online
+        - ip
+        - ping
+        - position
+        - level
+        - health
+        - stamina
+        - score
+        - deaths
+        - kills
+        - banned
+
+    PlayerResultObject:
+      type: object
+      properties: 
+        players:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlayerElement'
+      required:
+        - players
+
+
+  parameters:
+    EntityIdParameter:
+      name: id
+      in: path
+      required: true
+      schema:
+        $ref: './openapi.yaml#/components/schemas/TypeEntityId'
+
+
+paths:
+  /api/player:
+    get:
+      tags:
+        - WorldState
+      summary: Players list
+      description: Fetch a list of the currently online players. This is restricted to the player of the logged in user when the logged in user does not have the permission to view all players.
+      operationId: Player.get
+      responses:
+        200:
+          description: List of players
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/PlayerResultObject'
+                  meta:
+                    $ref: './openapi.yaml#/components/schemas/ResultEnvelopeMeta'
+                required:
+                  - data
+                  - meta
+      security:
+        - {}
+        - apiTokenName: [ ]
+          apiTokenSecret: [ ]
+        - sessionCookie: [ ]
+
+  /api/player/{id}:
+    get:
+      tags:
+        - WorldState
+      summary: Player get
+      description: Fetch the player specified by the given EntityID
+      operationId: Player.get.id
+      parameters:
+        - $ref: '#/components/parameters/EntityIdParameter'
+      responses:
+        200:
+          description: Player
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/PlayerResultObject'
+                  meta:
+                    $ref: './openapi.yaml#/components/schemas/ResultEnvelopeMeta'
+                required:
+                  - data
+                  - meta
+        404:
+          description: EntityID not found
+          $ref: './openapi.yaml#/components/responses/HttpEmptyEnvelopedResponse'
+      security:
+        - {}
+        - apiTokenName: [ ]
+          apiTokenSecret: [ ]
+        - sessionCookie: [ ]

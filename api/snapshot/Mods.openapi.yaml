@@ -1,0 +1,92 @@
+openapi: 3.1.0
+info:
+  title: Mods
+  version: '1'
+
+components:
+  schemas:
+    ModElement:
+      type: object
+      properties:
+        name:
+          type: string
+          examples:
+            - TFP_WebServer
+        displayName:
+          type: string
+          examples:
+            - Web Dashboard
+        description:
+          type: string
+          examples:
+            - Integrated Webserver for the Web Dashboard and server APIs
+        author:
+          type: string
+          examples:
+            - The Fun Pimps LLC
+        version:
+          type: string
+          examples:
+            - 21.1.15.0
+        website:
+          type: string
+          format: uri
+          examples:
+            - ''
+        web:
+          type: object
+          properties:
+            baseUrl:
+              type: string
+              examples:
+                - /webmods/TFP_MarkersExample/
+              description: Base URL of the WebMod folder of this mod. Always ends with a forward slash '/'.
+            bundle:
+              type: string
+              examples:
+                - /webmods/TFP_MarkersExample/bundle.js
+              description: URL of the React bundle if the mod has one.
+            css:
+              type: string
+              examples:
+                - /webmods/TFP_MarkersExample/styling.css
+              description: URL of a styling CSS file if the mod has one.
+          required:
+            - baseUrl
+      required:
+        - name
+        - displayName
+        - description
+        - author
+        - version
+        - website
+
+    ModsList:
+      type: array
+      items:
+        $ref: '#/components/schemas/ModElement'
+
+
+paths:
+  /api/mods:
+    get:
+      tags:
+        - GameData
+      summary: Mods list
+      description: Fetch a list of loaded mods
+      operationId: mods.get
+      responses:
+        200:
+          description: List of mods
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ModsList'
+                  meta:
+                    $ref: './openapi.yaml#/components/schemas/ResultEnvelopeMeta'
+                required:
+                  - data
+                  - meta

@@ -1,0 +1,42 @@
+openapi: 3.1.0
+info:
+  title: OpenAPI
+  version: '1'
+
+
+paths:
+  /api/OpenAPI/openapi.yaml:
+    get:
+      tags:
+        - Meta
+      summary: OpenAPI master document
+      description: Fetch the OpenAPI master document, referencing all the individual WebAPI specs
+      operationId: OpenAPI.openapi
+      responses:
+        200:
+          content:
+            application/json: {}
+          description: OpenAPI master document
+  /api/OpenAPI/{name}.openapi.yaml:
+    get:
+      tags:
+        - Meta
+      summary: OpenAPI spec for single API
+      description: Fetch the OpenAPI spec of a single WebAPI
+      operationId: OpenAPI.getAPI
+      parameters:
+        - in: path
+          name: name
+          required: true
+          schema:
+            pattern: '[^\/#\?]+?'
+            type: string
+      responses:
+        200:
+          content:
+            application/json: {}
+          description: OpenAPI spec for API
+        404:
+          content:
+            application/json: {}
+          description: No OpenAPI spec found for the API name

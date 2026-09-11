@@ -1,0 +1,58 @@
+openapi: 3.1.0
+info:
+  title: ItemIconHandler
+  version: '1'
+
+components:
+  parameters:
+    IconNameParameter:
+      name: name
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Name of icon
+
+    IconTintParameter:
+      name: tint
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^[0-9A-Z]{6}$'
+      description: Tint color of icon as 6 hex digits RGB value
+
+
+paths:
+  /BASEPATH/{name}__{tint}.png:
+    get:
+      tags:
+        - Resources
+      summary: ItemIcon get
+      description: Get a specific item icon with the given tint
+      operationId: ItemIconHandler.get.name
+      parameters:
+        - $ref: '#/components/parameters/IconNameParameter'
+        - $ref: '#/components/parameters/IconTintParameter'
+      responses:
+        200:
+          description: Item icon with tint
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+        400:
+          description: Invalid request
+          content:
+            text/plain:
+              schema:
+                type: string
+                const: ''
+        404:
+          description: ItemIcon or tint not found
+          content:
+            text/plain:
+              schema:
+                type: string
+                const: ''

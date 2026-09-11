@@ -1,0 +1,117 @@
+openapi: 3.1.0
+info:
+  title: SessionHandler
+  version: '1'
+
+components:
+  requestBodies:
+    SessionLoginBodyIn:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              username:
+                type: string
+              password:
+                type: string
+                format: password
+            required:
+              - username
+              - password
+      required: true
+
+
+paths:
+  /BASEPATH/login:
+    post:
+      tags:
+        - Session
+      summary: Login with web username
+      description: Try logging in with a web username/password combination created with the 'createwebuser' command.
+      operationId: SessionHandler.get.login
+      requestBody:
+        $ref: '#/components/requestBodies/SessionLoginBodyIn'
+      responses:
+        200:
+          description: Login succeeded, SessionID cookie will be set
+          content:
+            plain/text:
+              schema:
+                type: string
+                const: ''
+        400:
+          description: Invalid request
+          content:
+            plain/text:
+              schema:
+                type: string
+                enum:
+                  - 'NoLoginData'
+                  - 'InvalidLoginJson'
+        401:
+          description: Login failed
+          content:
+            plain/text:
+              schema:
+                type: string
+                const: 'UserPassInvalid'
+        500:
+          description: Internal error during login
+          content:
+            plain/text:
+              schema:
+                type: string
+                const: 'LoginError'
+
+  /BASEPATH/logout:
+    get:
+      tags:
+        - Session
+      summary: Logout
+      description: Log out from
+      operationId: SessionHandler.get.logout
+      responses:
+        302:
+          description: Logged out, redirect to page base
+          headers: 
+            Location:
+              description: Page base URL
+              schema:
+                type: string
+                const: '/app'
+
+  /BASEPATH/loginsteam:
+    get:
+      tags:
+        - Session
+      summary: Login with Steam
+      description: Log in with Steam's OpenID service
+      operationId: SessionHandler.get.loginsteam
+      responses:
+        302:
+          description: Redirect to Steam's OpenID page
+          headers:
+            Location:
+              description: Steam OpenID URL
+              schema:
+                type: string
+
+  /BASEPATH/verifysteamopenid:
+    get:
+      tags:
+        - Session
+      summary: Login with Steam - Verification
+      description: Callback from Steam's OpenID service, verifying the login result
+      operationId: SessionHandler.get.verifysteamopenid
+      responses:
+        302:
+          description: Redirect to page base or error page
+          headers:
+            Location:
+              description: Page base URL or error page
+              schema:
+                type: string
+                enum:
+                  - '/app'
+                  - '/app/error/SteamLoginFailed'

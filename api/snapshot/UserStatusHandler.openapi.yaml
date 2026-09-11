@@ -1,0 +1,87 @@
+openapi: 3.1.0
+info:
+  title: UserStatusHandler
+  version: '1'
+
+components:
+  schemas:
+    UserStatusElement:
+      type: object
+      properties:
+        loggedIn:
+          type: boolean
+          examples:
+            - true
+        username:
+          type: string
+          examples:
+            - TheFunPimp
+        permissionLevel:
+          type: integer
+          examples:
+            - 0
+        permissions:
+          type: array
+          items:
+            type: object
+            properties:
+              module:
+                type: string
+                examples:
+                  - webapi.markers
+              allowed:
+                type: object
+                properties:
+                  GET:
+                    type: boolean
+                    examples:
+                      - true
+                  POST:
+                    type: boolean
+                    examples:
+                      - true
+                  PUT:
+                    type: boolean
+                    examples:
+                      - false
+                  DELETE:
+                    type: boolean
+                    examples:
+                      - false
+                required:
+                  - GET
+      required:
+        - loggedIn
+        - username
+        - permissionLevel
+        - permissions
+
+
+paths:
+  /BASEPATH/:
+    get:
+      tags:
+        - Session
+      summary: User status info
+      description: Get information about the currently logged in user
+      operationId: UserStatusHandler.get
+      responses:
+        200:
+          description: User status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/UserStatusElement'
+                  meta:
+                    $ref: './openapi.yaml#/components/schemas/ResultEnvelopeMeta'
+                required:
+                  - data
+                  - meta
+      security:
+        - {}
+        - apiTokenName: [ ]
+          apiTokenSecret: [ ]
+        - sessionCookie: [ ]

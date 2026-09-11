@@ -1,0 +1,222 @@
+openapi: 3.1.0
+info:
+  title: Command
+  version: '1'
+
+components:
+  schemas:
+    CommandElement:
+      type: object
+      properties:
+        overloads:
+          type: array
+          items:
+            type: string
+          examples:
+            - [listplayers, lp]
+          description: Overload names for the command, including the main command name
+        command:
+          type: string
+          examples:
+            - listplayers
+          description: Main command name
+        description:
+          type: string
+          examples:
+            - lists all players
+          description: Short description text for the command
+        help:
+          type:
+            - string
+            - 'null'
+          description: Help text for the command if defined, null otherwise
+        allowed:
+          type: boolean
+          description: Can the command be executed with the permission level active for this request?
+      required:
+        - overloads
+        - command
+        - description
+
+    CommandsList:
+      type: array
+      items:
+        $ref: '#/components/schemas/CommandElement'
+
+    CommandsResult:
+      type: object
+      properties:
+        commands:
+          $ref: '#/components/schemas/CommandsList'
+      required:
+        - commands
+
+    CommandExecutedResultFull:
+      type: object
+      properties:
+        command:
+          type: string
+          examples:
+            - 'settime'
+          description: The command executed without arguments
+        parameters:
+          type: string
+          examples:
+            - '1 13 37'
+          description: The arguments of the executed command
+        result:
+          type: string
+          examples:
+            - 'Set time to 13616'
+          description: The output of the executed command
+      required:
+        - command
+        - parameters
+        - result
+      description: Full style command result
+      
+    CommandExecutedResultSimple:
+      type: object
+      properties:
+        resultRaw:
+          type: string
+          examples:
+            - 'Set time to 13616'
+          description: The output of the executed command
+      required:
+        - resultRaw
+      description: Simple style command result
+
+    CommandExecutedResponse:
+      type: object
+      properties:
+        data:
+          oneOf:
+            - $ref: '#/components/schemas/CommandExecutedResultFull'
+            - $ref: '#/components/schemas/CommandExecutedResultSimple'
+        meta:
+          $ref: './openapi.yaml#/components/schemas/ResultEnvelopeMeta'
+      required:
+        - data
+        - meta
+
+  requestBodies:
+    CommandBodyIn:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              command:
+                type: string
+                examples:
+                  - 'settime 1 13 37'
+                description: Command to be executed, including any arguments
+              format:
+                type: string
+                enum:
+                  - Full
+                  - Simple
+                  - Raw
+                description: Expected format of the returned execution result. Full being a full JSON object with info on the executed command and result, simple only returning a JSON object with the execution result and raw returning the execution result as plain text.
+            required:
+              - command
+      required: true
+
+
+  responses:
+    CommandsBodyOut:
+      description: Found commands
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/CommandsResult'
+              meta:
+                $ref: './openapi.yaml#/components/schemas/ResultEnvelopeMeta'
+            required:
+              - data
+              - meta
+
+
+  parameters:
+    CommandNameParameter:
+      name: name
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Name of command to fetch
+
+
+paths:
+  /api/command:
+    get:
+      tags:
+        - Commands
+      summary: Commands list
+      description: Fetch a list of all commands
+      operationId: command.get
+      responses:
+        200:
+          description: List of commands
+          $ref: '#/components/responses/CommandsBodyOut'
+
+    post:
+      tags:
+        - Commands
+      summary: Command execute
+      description: Execute a command
+      operationId: command.post
+      requestBody:
+        $ref: '#/components/requestBodies/CommandBodyIn'
+      responses:
+        200:
+          description: Command executed successfully
+          content: 
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandExecutedResponse'
+            text/plain:
+              schema: 
+                type: string
+                examples:
+                  - 'Set time to 13616'
+        400:
+          description: Invalid request body, errorCode will be 'NO_COMMAND'
+          $ref: './openapi.yaml#/components/responses/HttpEmptyEnvelopedResponse'
+        404:
+          description: Command to be executed not found
+          $ref: './openapi.yaml#/components/responses/HttpEmptyEnvelopedResponse'
+        403:
+          description: Not allowed to execute the given command
+          $ref: './openapi.yaml#/components/responses/Unauthorized'
+      security:
+        - {}
+        - apiTokenName: []
+          apiTokenSecret: []
+        - sessionCookie: []
+
+  /api/command/{name}:
+    get:
+      tags:
+        - Commands
+      summary: Command show
+      description: Get info on a specific command
+      operationId: command.get.id
+      parameters:
+        - $ref: '#/components/parameters/CommandNameParameter'
+      responses:
+        200:
+          description: Single command
+          $ref: '#/components/responses/CommandsBodyOut'
+        404:
+          description: Command not found
+          $ref: './openapi.yaml#/components/responses/HttpEmptyEnvelopedResponse'
+      security:
+        - {}
+        - apiTokenName: [ ]
+          apiTokenSecret: [ ]
+        - sessionCookie: [ ]

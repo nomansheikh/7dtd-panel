@@ -1,0 +1,117 @@
+openapi: 3.1.0
+info:
+  title: ServerInfo
+  version: '1'
+
+components:
+  schemas:
+    ServerInfoElementInt:
+      type: object
+      properties:
+        name:
+          type: string
+          examples:
+            - TimeOfDayIncPerSec
+        type:
+          type: string
+          const: 'int'
+        value:
+          type: integer
+          examples:
+            - 6
+      required:
+        - name
+        - type
+        - value
+
+    ServerInfoElementFloat:
+      type: object
+      properties:
+        name:
+          type: string
+          examples:
+            - GameDifficultyBonus
+        type:
+          type: string
+          const: 'float'
+        value:
+          type: number
+          format: float
+          examples:
+            - 1
+      required:
+        - name
+        - type
+        - value
+
+    ServerInfoElementBool:
+      type: object
+      properties:
+        name:
+          type: string
+          examples:
+            - IsSpawnEnemies
+        type:
+          type: string
+          const: 'bool'
+        value:
+          type: boolean
+          examples:
+            - true
+      required:
+        - name
+        - type
+        - value
+
+    ServerInfoElementString:
+      type: object
+      properties:
+        name:
+          type: string
+          examples:
+            - GameWorld
+        type:
+          type: string
+          const: 'string'
+        value:
+          type: string
+          examples:
+            - Navezgane
+      required:
+        - name
+        - type
+        - value
+
+    ServerInfoList:
+      type: array
+      items:
+        anyOf:
+          - $ref: '#/components/schemas/ServerInfoElementInt'
+          - $ref: '#/components/schemas/ServerInfoElementFloat'
+          - $ref: '#/components/schemas/ServerInfoElementBool'
+          - $ref: '#/components/schemas/ServerInfoElementString'
+
+
+paths:
+  /api/serverinfo:
+    get:
+      tags:
+        - ServerState
+      summary: ServerInfo
+      description: Fetch the ServerInfo
+      operationId: ServerInfo.get
+      responses:
+        200:
+          description: List of ServerInfo data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ServerInfoList'
+                  meta:
+                    $ref: './openapi.yaml#/components/schemas/ResultEnvelopeMeta'
+                required:
+                  - data
+                  - meta

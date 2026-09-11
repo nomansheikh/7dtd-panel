@@ -1,0 +1,53 @@
+openapi: 3.1.0
+info:
+  title: Map
+  version: '1'
+
+components:
+  schemas:
+    MapInfoObject:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          description: Is map rendering enabled
+        mapBlockSize:
+          type: integer
+          minimum: 2
+          description: Width/height of a single map tile image
+        maxZoom:
+          type: integer
+          description: Maximum supported zoom level on the backend
+        mapSize:
+          $ref: './openapi.yaml#/components/schemas/TypeVector3i'
+          description: Size of the loaded game world
+      required:
+        - enabled
+        - mapBlockSize
+        - maxZoom
+        - mapSize
+
+
+paths:
+  /api/map/config:
+    get:
+      tags:
+        - Map
+      summary: Map info
+      description: Get info about the web map
+      operationId: Map.get.config
+      responses:
+        200:
+          description: Map info
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/MapInfoObject'
+                  meta:
+                    $ref: './openapi.yaml#/components/schemas/ResultEnvelopeMeta'
+                required:
+                  - data
+                  - meta

@@ -1,0 +1,108 @@
+openapi: 3.1.0
+info:
+  title: Register User
+  version: '1'
+
+components:
+  schemas:
+    TypeRegisterUserName:
+      type: string
+    
+    RegisterUserElement:
+      type: object
+      properties:
+        playerName:
+          type: string
+          description: In-game user name who requested the registration
+        expirationSeconds:
+          type: number
+          format: double
+          description: Time until the registration token expires
+      required:
+        - playerName
+        - expirationSeconds
+
+
+  requestBodies:
+    RegisterUserBodyIn:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              token:
+                type: string
+                format: password
+              username:
+                type: string
+              password:
+                type: string
+                format: password
+            required:
+              - token
+              - username
+              - password
+      required: true
+
+
+  parameters:
+    RegisterUserTokenPathParameter:
+      name: token
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/TypeRegisterUserName'
+
+
+paths:
+  /api/registeruser:
+    post:
+      tags:
+        - Permissions
+      summary: Register user submit
+      description: Finish user registration process
+      operationId: RegisterUser.post
+      requestBody:
+        $ref: '#/components/requestBodies/RegisterUserBodyIn'
+      responses:
+        201:
+          description: User created or updated
+          $ref: './openapi.yaml#/components/responses/HttpEmptyEnvelopedResponse'
+        400:
+          description: Invalid request body, errorCode will be one of 'MISSING_TOKEN', 'MISSING_USERNAME' or 'MISSING_PASSWORD'
+          $ref: './openapi.yaml#/components/responses/HttpEmptyEnvelopedResponse'
+        401:
+          description: Can not proceed due to invalid data, errorCode will be one of 'INVALID_OR_EXPIRED_TOKEN', 'INVALID_USERNAME', 'INVALID_PASSWORD' or 'DUPLICATE_USERNAME'
+          $ref: './openapi.yaml#/components/responses/HttpEmptyEnvelopedResponse'
+  
+  
+  /api/registeruser/{token}:
+    get:
+      tags:
+        - Permissions
+      summary: Register user get data
+      description: Get data for user registration
+      operationId: RegisterUser.get.id
+      parameters:
+        - $ref: '#/components/parameters/RegisterUserTokenPathParameter'
+      responses:
+        200:
+          description: User registration data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/RegisterUserElement'
+                  meta:
+                    $ref: './openapi.yaml#/components/schemas/ResultEnvelopeMeta'
+                required:
+                  - data
+                  - meta
+        400:
+          description: Invalid request, errorCode will be 'MISSING_TOKEN'
+          $ref: './openapi.yaml#/components/responses/HttpEmptyEnvelopedResponse'
+        404:
+          description: Token not found
+          $ref: './openapi.yaml#/components/responses/HttpEmptyEnvelopedResponse'

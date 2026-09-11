@@ -1,0 +1,58 @@
+openapi: 3.1.0
+info:
+  title: Bloodmoon
+  version: '1'
+
+components:
+  schemas:
+    BloodmoonObject:
+      type: object
+      properties:
+        gameTime:
+          $ref: './openapi.yaml#/components/schemas/TypeGameTimeObject'
+          description: Current in-game time
+        bloodmoonActive:
+          type: boolean
+          description: A bloodmoon is currently happening
+        nextBloodmoon:
+          $ref: './openapi.yaml#/components/schemas/TypeGameTimeObject'
+          description: In-game time of start of next bloodmoon or the currently running one
+        nextBloodmoonEnd:
+          $ref: './openapi.yaml#/components/schemas/TypeGameTimeObject'
+          description: In-game time of the end of the next bloodmoon - or end of the current one if running
+      required:
+        - gameTime
+        - bloodmoonActive
+        - nextBloodmoon
+        - nextBloodmoonEnd
+
+
+paths:
+  /api/bloodmoon:
+    get:
+      tags:
+        - WorldState
+      summary: Bloodmoon
+      description: Get info on the bloodmoon
+      operationId: Bloodmoon.get
+      responses:
+        200:
+          description: Bloodmoon info
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/BloodmoonObject'
+                  meta:
+                    $ref: './openapi.yaml#/components/schemas/ResultEnvelopeMeta'
+                required:
+                  - data
+                  - meta
+        403:
+          $ref: './openapi.yaml#/components/responses/Unauthorized'
+      security:
+        - apiTokenName: [ ]
+          apiTokenSecret: [ ]
+        - sessionCookie: [ ]

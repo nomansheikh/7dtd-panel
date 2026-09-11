@@ -1,0 +1,52 @@
+openapi: 3.1.0
+info:
+  title: ServerStats
+  version: '1'
+
+components:
+  schemas:
+    ServerStatsObject:
+      type: object
+      properties: 
+        gameTime:
+          $ref: './openapi.yaml#/components/schemas/TypeGameTimeObject'
+          description: Current in-game time
+        players:
+          type: integer
+          description: Currently logged in players
+        hostiles:
+          type: integer
+          description: Currently active hostiles, including hostile animals
+        animals:
+          type: integer
+          description: Currently active (non-hostile) animals
+      required:
+        - gameTime
+        - players
+        - hostiles
+        - animals
+
+
+paths:
+  /api/serverstats:
+    get:
+      tags:
+        - ServerState
+      summary: ServerStats
+      description: Fetch the current server stats
+      operationId: ServerStats.get
+      responses:
+        200:
+          description: Server stats
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ServerStatsObject'
+                  meta:
+                    $ref: './openapi.yaml#/components/schemas/ResultEnvelopeMeta'
+                required:
+                  - data
+                  - meta

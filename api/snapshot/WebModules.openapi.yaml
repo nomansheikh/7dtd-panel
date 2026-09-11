@@ -1,0 +1,183 @@
+openapi: 3.1.0
+info:
+  title: Web Modules
+  version: '1'
+
+components:
+  schemas:
+    TypeWebModuleName:
+      type: string
+      
+    TypeWebMethodPermissionEntry:
+      oneOf:
+        - type: integer
+          description: Explicit per method permission level
+        - type: string
+          const: 'inherit'
+          description: Inherit the module's global permission level
+    
+    WebModuleElement:
+      type: object
+      properties:
+        module:
+          $ref: '#/components/schemas/TypeWebModuleName'
+        permissionLevelGlobal:
+          type: integer
+          description: Permission level for the overall module
+        permissionLevelPerMethod:
+          type: object
+          properties:
+            GET:
+              $ref: '#/components/schemas/TypeWebMethodPermissionEntry'
+            POST:
+              $ref: '#/components/schemas/TypeWebMethodPermissionEntry'
+            PUT:
+              $ref: '#/components/schemas/TypeWebMethodPermissionEntry'
+            DELETE:
+              $ref: '#/components/schemas/TypeWebMethodPermissionEntry'
+          description: Permission levels per HTTP method
+        isDefault:
+          type: boolean
+          description: Whether this module uses the module's default permissions or the shown values are a user defined override
+      required:
+        - module
+        - permissionLevelGlobal
+        - permissionLevelPerMethod
+        - isDefault
+
+    WebModuleList:
+      type: array
+      items:
+        $ref: '#/components/schemas/WebModuleElement'
+
+
+  requestBodies:
+    WebModuleBodyIn:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              permissionLevelGlobal:
+                type: integer
+                description: Permission level for the overall module
+              permissionLevelPerMethod:
+                type: object
+                properties:
+                  GET:
+                    $ref: '#/components/schemas/TypeWebMethodPermissionEntry'
+                  POST:
+                    $ref: '#/components/schemas/TypeWebMethodPermissionEntry'
+                  PUT:
+                    $ref: '#/components/schemas/TypeWebMethodPermissionEntry'
+                  DELETE:
+                    $ref: '#/components/schemas/TypeWebMethodPermissionEntry'
+                description: Permission levels per HTTP method
+            required:
+              - permissionLevelGlobal
+              - permissionLevelPerMethod
+      required: true
+
+
+  parameters:
+    WebModuleNamePathParameter:
+      name: moduleName
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/TypeWebModuleName'
+
+
+paths:
+  /api/webmodules:
+    get:
+      tags:
+        - Permissions
+      summary: Web modules permission list
+      description: Fetch a list of all web module permissions
+      operationId: WebModules.get
+      responses:
+        200:
+          description: List of web modules
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/WebModuleList'
+                  meta:
+                    $ref: './openapi.yaml#/components/schemas/ResultEnvelopeMeta'
+                required:
+                  - data
+                  - meta
+        403:
+          $ref: './openapi.yaml#/components/responses/Unauthorized'
+      security:
+        - apiTokenName: [ ]
+          apiTokenSecret: [ ]
+        - sessionCookie: [ ]
+
+
+  /api/webmodules/{moduleName}:
+#    get:
+#      tags:
+#        - Permissions
+#      summary: Marker show
+#      description: Fetch a single defined map marker
+#      operationId: blacklist.get.id
+#      parameters:
+#        - $ref: '#/components/parameters/MarkerIdParameter'
+#      responses:
+#        200:
+#          description: Single found marker
+#          $ref: '#/components/responses/MarkersBodyOut'
+#        404:
+#          description: Marker ID not found, errorCode will be 'ID_NOT_FOUND'
+#          $ref: '#/components/responses/HttpEmptyEnvelopedResponse'
+
+    post:
+      tags:
+        - Permissions
+      summary: Web modules permission create
+      description: Create or update a web module permission override
+      operationId: WebModules.post.id
+      parameters:
+        - $ref: '#/components/parameters/WebModuleNamePathParameter'
+      requestBody:
+        $ref: '#/components/requestBodies/WebModuleBodyIn'
+      responses:
+        201:
+          description: Permission override created or updated
+          $ref: './openapi.yaml#/components/responses/HttpEmptyEnvelopedResponse'
+        400:
+          description: Invalid request body, errorCode will be one of 'NO_MODULE', 'INVALID_MODULE', 'INVALID_PERMISSION_LEVEL_GLOBAL', 'INVALID_PERMISSION_LEVEL_PER_METHOD_PROPERTY', 'INVALID_METHOD_NAME', 'UNSUPPORTED_METHOD', 'INVALID_PERMISSION_STRING', 'INVALID_PERMISSION_VALUE' or 'INVALID_PERMISSION_VALUE_TYPE'
+          $ref: './openapi.yaml#/components/responses/HttpEmptyEnvelopedResponse'
+        403:
+          $ref: './openapi.yaml#/components/responses/Unauthorized'
+      security:
+        - apiTokenName: []
+          apiTokenSecret: []
+        - sessionCookie: []
+
+    delete:
+      tags:
+        - Permissions
+      summary: Web modules permission delete
+      description: Delete a single web module permission override
+      operationId: WebModules.delete.id
+      parameters:
+        - $ref: '#/components/parameters/WebModuleNamePathParameter'
+      responses:
+        204:
+          description: Deleted permission override
+          $ref: './openapi.yaml#/components/responses/HttpEmptyEnvelopedResponse'
+        404:
+          description: Module not found
+          $ref: './openapi.yaml#/components/responses/HttpEmptyEnvelopedResponse'
+        403:
+          $ref: './openapi.yaml#/components/responses/Unauthorized'
+      security:
+        - apiTokenName: []
+          apiTokenSecret: []
+        - sessionCookie: []

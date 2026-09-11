@@ -1,0 +1,123 @@
+openapi: 3.1.0
+info:
+  title: GameStats
+  version: '1'
+
+components:
+  schemas:
+    GameStatElementInt:
+      type: object
+      properties:
+        name:
+          type: string
+          examples:
+            - TimeOfDayIncPerSec
+        type:
+          type: string
+          const: 'int'
+        value:
+          type: integer
+          examples:
+            - 6
+      required:
+        - name
+        - type
+        - value
+
+    GameStatElementFloat:
+      type: object
+      properties:
+        name:
+          type: string
+          examples:
+            - GameDifficultyBonus
+        type:
+          type: string
+          const: 'float'
+        value:
+          type: number
+          format: float
+          examples:
+            - 1
+      required:
+        - name
+        - type
+        - value
+
+    GameStatElementBool:
+      type: object
+      properties:
+        name:
+          type: string
+          examples:
+            - IsSpawnEnemies
+        type:
+          type: string
+          const: 'bool'
+        value:
+          type: boolean
+          examples:
+            - true
+      required:
+        - name
+        - type
+        - value
+
+    GameStatElementString:
+      type: object
+      properties:
+        name:
+          type: string
+          examples:
+            - GameWorld
+        type:
+          type: string
+          const: 'string'
+        value:
+          type: string
+          examples:
+            - Navezgane
+      required:
+        - name
+        - type
+        - value
+
+    GameStatList:
+      type: array
+      items:
+        anyOf:
+          - $ref: '#/components/schemas/GameStatElementInt'
+          - $ref: '#/components/schemas/GameStatElementFloat'
+          - $ref: '#/components/schemas/GameStatElementBool'
+          - $ref: '#/components/schemas/GameStatElementString'
+
+
+paths:
+  /api/gamestats:
+    get:
+      tags:
+        - ServerState
+      summary: GameStats list
+      description: Fetch a list of GameStats
+      operationId: GameStats.get
+      responses:
+        200:
+          description: List of GameStats
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/GameStatList'
+                  meta:
+                    $ref: './openapi.yaml#/components/schemas/ResultEnvelopeMeta'
+                required:
+                  - data
+                  - meta
+        403:
+          $ref: './openapi.yaml#/components/responses/Unauthorized'
+      security:
+        - apiTokenName: [ ]
+          apiTokenSecret: [ ]
+        - sessionCookie: [ ]

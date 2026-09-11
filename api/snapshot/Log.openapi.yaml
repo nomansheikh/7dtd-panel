@@ -1,0 +1,119 @@
+openapi: 3.1.0
+info:
+  title: Log
+  version: '1'
+
+components:
+  schemas:
+    LogEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+          minimum: 0
+          description: Consecutive ID/number of this log line
+        msg:
+          type: string
+          examples:
+            - 'Version: Alpha 21 (b48) Compatibility Version: Alpha 21, Build: WindowsPlayer 64 Bit'
+          description: Message
+        type:
+          type: string
+          enum:
+            - Error
+            - Assert
+            - Warning
+            - Log
+            - Exception
+          description: Severity type
+        trace:
+          type: string
+          description: Stacktrace if entry is an Exception
+        isotime:
+          type: string
+          format: date-time
+        uptime:
+          type: string
+          examples:
+            - '87123'
+          description: Time since server was started in milliseconds
+      required:
+        - id
+        - msg
+        - type
+        - trace
+        - isotime
+        - uptime
+      
+    LogData:
+      type: object
+      properties: 
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/LogEntry'
+        firstLine:
+          type: integer
+          examples:
+            - 47
+          description: Number of first line retrieved
+        lastLine:
+          type: integer
+          examples:
+            - 48
+          description: Number of next line to retrieve to follow up without missing entries
+      required:
+        - entries
+        - firstLine
+        - lastLine
+
+
+  parameters:
+    LogCountParameter:
+      name: count
+      in: query
+      required: false
+      schema:
+        type: integer
+      description: Number of lines to fetch. If negative fetches count lines from the firstLine. Defaults to 50.
+
+    LogFirstLineParameter:
+      name: firstLine
+      in: query
+      required: false
+      schema:
+        type: integer
+      description: First line number to fetch. Defaults to the oldest stored log line if count is positive. Defaults to the most recent log line if count is negative.
+
+paths:
+  /api/log:
+    get:
+      tags:
+        - Log
+      summary: Log
+      description: Get an amount of lines from the server log
+      operationId: log.get
+      parameters:
+        - $ref: '#/components/parameters/LogCountParameter'
+        - $ref: '#/components/parameters/LogFirstLineParameter'
+      responses:
+        200:
+          description: Log information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/LogData'
+                  meta:
+                    $ref: './openapi.yaml#/components/schemas/ResultEnvelopeMeta'
+                required:
+                  - data
+                  - meta
+        403:
+          $ref: './openapi.yaml#/components/responses/Unauthorized'
+      security:
+        - apiTokenName: []
+          apiTokenSecret: []
+        - sessionCookie: []

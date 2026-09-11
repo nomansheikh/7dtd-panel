@@ -1,0 +1,276 @@
+openapi: 3.1.0
+info:
+  title: 7 Days To Die WebAPI
+  version: '1.0.0'
+servers:
+  - url: /
+
+components:
+  schemas:
+    ResultEnvelopeMeta:
+      type: object
+      properties:
+        serverTime:
+          type: string
+          format: date-time
+        requestMethod:
+          type: string
+          examples:
+            - GET
+            - POST
+        requestSubpath:
+          type: string
+          examples:
+            - search
+          description: >-
+            URL path (without query arguments) starting from after the API name,
+            excluding the initial slash '/'
+        requestBody:
+          type:
+            - object
+            - 'null'
+          examples:
+            - id: a
+              filter: 123
+          description: If erroneous request had a valid JSON body it is included here
+        errorCode:
+          type: string
+          examples:
+            - GET_WITH_BODY
+            - INVALID_COMMAND
+          description: Custom error identifier
+        exceptionMessage:
+          type: string
+          description: Message (If API execution threw an exception)
+        exceptionTrace:
+          type: string
+          description: Stack trace (If API execution threw an exception)
+      required:
+        - serverTime
+        - requestMethod
+        - requestSubpath
+        - requestBody
+        - errorCode
+
+    TypeEntityId:
+      type: integer
+      minimum: 0
+      examples:
+        - 171
+      description: World-unique EntityID
+
+    TypeVector3i:
+      type: object
+      properties:
+        x:
+          type: integer
+          examples:
+            - -123
+        y:
+          type: integer
+          examples:
+            - 61
+        z:
+          type: integer
+          examples:
+            - 734
+      required:
+        - x
+        - 'y'
+        - z
+      description: 3D vector in full blocks
+
+    TypeUserIdString:
+      type: string
+      pattern: '^\[a-zA-Z]+_[\w]+$'
+      examples:
+        - 'Steam_76561198021925107'
+      description: User ID including platform
+
+    TypeUserIdObject:
+      anyOf:
+        - type: object
+          properties:
+            combinedString:
+              $ref: '#/components/schemas/TypeUserIdString'
+            platformId:
+              type: string
+              examples:
+                - Steam
+                - XBL
+              description: Gaming platform the ID references
+            userId:
+              type: string
+              examples:
+                - '76561198021925107'
+              description: Unique ID of the user within the given gaming platform
+          required:
+            - combinedString
+            - platformId
+            - userId
+          description: User ID
+        - type: 'null'
+      
+    TypeGameTimeObject:
+      type: object
+      properties:
+        days:
+          type: integer
+          minimum: 1
+        hours:
+          type: integer
+          minimum: 0
+          maximum: 23
+        minutes:
+          type: integer
+          minimum: 0
+          maximum: 59
+      required:
+        - days
+        - hours
+        - minutes
+        
+
+  parameters:
+    UserIdPathParameter:
+      name: id
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/TypeUserIdString'
+
+
+  responses:
+    HttpEmptyEnvelopedResponse:
+      description: Empty result
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  type: 'null'
+                maxItems: 0
+                examples:
+                  - []
+              meta:
+                $ref: '#/components/schemas/ResultEnvelopeMeta'
+            required:
+              - data
+              - meta
+
+    Unauthorized:
+      description: Not authorized to call this operation
+
+
+  securitySchemes:
+    apiTokenName:
+      type: apiKey
+      in: header
+      name: X-SDTD-API-TOKENNAME
+      description: Authentication by a "WebToken" with token name and token secret, passed in as header fields. This specifies the token name.
+    apiTokenSecret:
+      type: apiKey
+      in: header
+      name: X-SDTD-API-SECRET
+      description: Authentication by a "WebToken" with token name and token secret, passed in as header fields. This specifies the token secret.
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: sid
+      description: Authentication by session cookie. A cookie can be received from the session endpoints.
+
+
+paths:
+  /session/login:
+    $ref: './SessionHandler.openapi.yaml#/paths/~1BASEPATH~1login'
+  /session/logout:
+    $ref: './SessionHandler.openapi.yaml#/paths/~1BASEPATH~1logout'
+  /session/loginsteam:
+    $ref: './SessionHandler.openapi.yaml#/paths/~1BASEPATH~1loginsteam'
+  /session/verifysteamopenid:
+    $ref: './SessionHandler.openapi.yaml#/paths/~1BASEPATH~1verifysteamopenid'
+  /userstatus:
+    $ref: './UserStatusHandler.openapi.yaml#/paths/~1BASEPATH~1'
+  /itemicons/{name}__{tint}.png:
+    $ref: './ItemIconHandler.openapi.yaml#/paths/~1BASEPATH~1{name}__{tint}.png'
+  /api/map/config:
+    $ref: './Map.openapi.yaml#/paths/~1api~1map~1config'
+  /api/command:
+    $ref: './Command.openapi.yaml#/paths/~1api~1command'
+  /api/command/{name}:
+    $ref: './Command.openapi.yaml#/paths/~1api~1command~1{name}'
+  /api/log:
+    $ref: './Log.openapi.yaml#/paths/~1api~1log'
+  /api/OpenAPI/openapi.yaml:
+    $ref: './OpenAPI.openapi.yaml#/paths/~1api~1OpenAPI~1openapi.yaml'
+  /api/OpenAPI/{name}.openapi.yaml:
+    $ref: './OpenAPI.openapi.yaml#/paths/~1api~1OpenAPI~1{name}.openapi.yaml'
+  /api/animal:
+    $ref: './Animal.openapi.yaml#/paths/~1api~1animal'
+  /api/bloodmoon:
+    $ref: './Bloodmoon.openapi.yaml#/paths/~1api~1bloodmoon'
+  /api/hostile:
+    $ref: './Hostile.openapi.yaml#/paths/~1api~1hostile'
+  /api/player:
+    $ref: './Player.openapi.yaml#/paths/~1api~1player'
+  /api/player/{id}:
+    $ref: './Player.openapi.yaml#/paths/~1api~1player~1{id}'
+  /api/gameprefs:
+    $ref: './GamePrefs.openapi.yaml#/paths/~1api~1gameprefs'
+  /api/gamestats:
+    $ref: './GameStats.openapi.yaml#/paths/~1api~1gamestats'
+  /api/sandboxsettings:
+    $ref: './SandboxSettings.openapi.yaml#/paths/~1api~1sandboxsettings'
+  /api/serverinfo:
+    $ref: './ServerInfo.openapi.yaml#/paths/~1api~1serverinfo'
+  /api/serverstats:
+    $ref: './ServerStats.openapi.yaml#/paths/~1api~1serverstats'
+  /api/blacklist:
+    $ref: './Blacklist.openapi.yaml#/paths/~1api~1blacklist'
+  /api/blacklist/{id}:
+    $ref: './Blacklist.openapi.yaml#/paths/~1api~1blacklist~1{id}'
+  /api/commandpermissions:
+    $ref: './CommandPermissions.openapi.yaml#/paths/~1api~1commandpermissions'
+  /api/commandpermissions/{command}:
+    $ref: './CommandPermissions.openapi.yaml#/paths/~1api~1commandpermissions~1{command}'
+  /api/registeruser:
+    $ref: './RegisterUser.openapi.yaml#/paths/~1api~1registeruser'
+  /api/registeruser/{token}:
+    $ref: './RegisterUser.openapi.yaml#/paths/~1api~1registeruser~1{token}'
+  /api/userpermissions:
+    $ref: './UserPermissions.openapi.yaml#/paths/~1api~1userpermissions'
+  /api/userpermissions/user/{id}:
+    $ref: './UserPermissions.openapi.yaml#/paths/~1api~1userpermissions~1user~1{id}'
+  /api/userpermissions/group/{id}:
+    $ref: './UserPermissions.openapi.yaml#/paths/~1api~1userpermissions~1group~1{id}'
+  /api/webapitokens:
+    $ref: './WebApiTokens.openapi.yaml#/paths/~1api~1webapitokens'
+  /api/webapitokens/{apiTokenName}:
+    $ref: './WebApiTokens.openapi.yaml#/paths/~1api~1webapitokens~1{apiTokenName}'
+  /api/webmodules:
+    $ref: './WebModules.openapi.yaml#/paths/~1api~1webmodules'
+  /api/webmodules/{moduleName}:
+    $ref: './WebModules.openapi.yaml#/paths/~1api~1webmodules~1{moduleName}'
+  /api/webusers:
+    $ref: './WebUsers.openapi.yaml#/paths/~1api~1webusers'
+  /api/webusers/{userName}:
+    $ref: './WebUsers.openapi.yaml#/paths/~1api~1webusers~1{userName}'
+  /api/whitelist:
+    $ref: './Whitelist.openapi.yaml#/paths/~1api~1whitelist'
+  /api/whitelist/user/{id}:
+    $ref: './Whitelist.openapi.yaml#/paths/~1api~1whitelist~1user~1{id}'
+  /api/whitelist/group/{id}:
+    $ref: './Whitelist.openapi.yaml#/paths/~1api~1whitelist~1group~1{id}'
+  /api/entityclass:
+    $ref: './EntityClass.openapi.yaml#/paths/~1api~1entityclass'
+  /api/item:
+    $ref: './Item.openapi.yaml#/paths/~1api~1item'
+  /api/mods:
+    $ref: './Mods.openapi.yaml#/paths/~1api~1mods'
+  /api/markers:
+    $ref: './Markers.openapi.yaml#/paths/~1api~1markers'
+  /api/markers/{id}:
+    $ref: './Markers.openapi.yaml#/paths/~1api~1markers~1{id}'

@@ -1,0 +1,169 @@
+openapi: 3.1.0
+info:
+  title: SandboxSettings
+  version: '1'
+
+components:
+  schemas:
+    SandboxOptionValue:
+      type: object
+      properties:
+        index:
+          type: integer
+          description: Index within the value set of the option
+        value:
+          oneof:
+            - type: integer
+              description: Internal integer value of the option
+            - type: number
+              format: float
+              description: Internal float value of the option
+            - type: boolean
+              description: Internal bool value of the option
+        localizedName:
+          type: string
+          description: Localized value as shown in UIs
+      required:
+        - index
+        - value
+        - localizedName
+    
+    SandboxOptionsValueSet:
+      type: array
+      items:
+        $ref: '#/components/schemas/SandboxOptionValue'
+
+    SandboxOptionDetails:
+      type: object
+      properties:
+        categoryName:
+          type: string
+          examples:
+            - General
+          description: Name of the category the option belongs to
+        internalName:
+          type: string
+          examples:
+            - Ranged Damage
+          description: Internal name of the option itself
+        localizedName:
+          type: string
+          examples:
+            - Fernkampfschaden
+          description: Localized name of the option as shown in UIs
+        description:
+          type: string
+          examples:
+            - Mit Bogen, Schusswaffen und anderen Fernkampfwaffen durch den Spieler verursachter Schaden.
+          description: Localized description of the option as shown in UIs
+      required:
+        - categoryName
+        - internalName
+        - localizedName
+        - description
+
+    SandboxOptionElement:
+      type: object
+      properties:
+        key:
+          type: string
+          examples:
+            - RangedDamage
+          description: Internal key of the option
+        type:
+          type: string
+          examples:
+            - Float
+          description: Type of the value
+        activeValue:
+          $ref: '#/components/schemas/SandboxOptionValue'
+        defaultValue:
+          $ref: '#/components/schemas/SandboxOptionValue'
+        valueSet:
+          $ref: '#/components/schemas/SandboxOptionsValueSet'
+        details:
+          $ref: '#/components/schemas/SandboxOptionDetails'
+      required:
+        - key
+        - type
+        - activeValue
+        - defaultValue
+
+    SandboxOptionsList:
+      type: array
+      items:
+        $ref: '#/components/schemas/SandboxOptionElement'
+
+    SandboxOptionsResult:
+      type: object
+      properties:
+        code:
+          type: string
+          examples:
+            - AAAJABJACJADJARFBNC
+        options:
+          $ref: '#/components/schemas/SandboxOptionsList'
+      required:
+        - code
+        - options
+
+
+  responses:
+    SandboxOptionsBodyOut:
+      description: Sandbox Options
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/SandboxOptionsResult'
+              meta:
+                $ref: './openapi.yaml#/components/schemas/ResultEnvelopeMeta'
+            required:
+              - data
+              - meta
+
+
+  parameters:
+    SandboxOptionsCodeParameter:
+      name: code
+      in: query
+      required: false
+      schema:
+        type: string
+      description: Sandbox Code to analyze instead of the currently active code on the server. 
+
+    SandboxOptionsOnlyChangedParameter:
+      name: onlyChanged
+      in: query
+      required: false
+      schema:
+        type: boolean
+      description: Only list options that have non-default value.
+
+    SandboxOptionsDetailedParameter:
+      name: detailed
+      in: query
+      required: false
+      schema:
+        type: boolean
+      description: Output more information, like descriptions of settings and the whole range of allowed values per setting.
+
+
+paths:
+  /api/sandboxsettings:
+    get:
+      tags:
+        - ServerState
+      summary: Sandbox Options
+      description: Get the currently active sandbox options or the options from a passed in code
+      operationId: sandboxsettings.get
+      parameters:
+        - $ref: '#/components/parameters/SandboxOptionsCodeParameter'
+        - $ref: '#/components/parameters/SandboxOptionsOnlyChangedParameter'
+        - $ref: '#/components/parameters/SandboxOptionsDetailedParameter'
+      responses:
+        200:
+          description: List of Sandbox Options
+          $ref: '#/components/responses/SandboxOptionsBodyOut'
