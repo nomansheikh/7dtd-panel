@@ -1,0 +1,10 @@
+{
+    "data": {
+        "command": "version",
+        "parameters": "",
+        "result": "Game version: V 3.2.0 (b10) Compatibility Version: V 3.2.0\nMod TFP_Harmony: 1.1.0.4\nMod Allocs_Commands: 30\nMod Allocs_Core: 38\nMod Allocs_Webinterface: 52\nMod TFP_CommandExtensions: 1.3.0.0\nMod TFP_MarkersExample: 1.3.0.0\n"
+    },
+    "meta": {
+        "serverTime": "2026-09-11T00:00:00.0000000+00:00"
+    }
+}

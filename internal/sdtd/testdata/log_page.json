@@ -1,0 +1,35 @@
+{
+    "data": {
+        "entries": [
+            {
+                "id": 0,
+                "msg": "StartGame done",
+                "type": "Log",
+                "trace": null,
+                "isotime": "2026-09-11T07:49:35.7085250+00:00",
+                "uptime": "41831"
+            },
+            {
+                "id": 1,
+                "msg": "[EOS] Server registered, session: 00000000000000000000000000000000, 56 attributes",
+                "type": "Log",
+                "trace": null,
+                "isotime": "2026-09-11T07:49:35.7196780+00:00",
+                "uptime": "41843"
+            },
+            {
+                "id": 2,
+                "msg": "[EOS] Session address: 16*.10*.13*.13*",
+                "type": "Log",
+                "trace": null,
+                "isotime": "2026-09-11T07:49:35.7239830+00:00",
+                "uptime": "41847"
+            }
+        ],
+        "firstLine": 0,
+        "lastLine": 3
+    },
+    "meta": {
+        "serverTime": "2026-09-11T00:00:00.0000000+00:00"
+    }
+}

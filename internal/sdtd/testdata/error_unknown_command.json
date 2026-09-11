@@ -1,0 +1,12 @@
+{
+    "data": [],
+    "meta": {
+        "serverTime": "2026-09-11T00:00:00.0000000+00:00",
+        "requestMethod": "POST",
+        "requestSubpath": null,
+        "requestBody": {
+            "command": "definitelynotacommand"
+        },
+        "errorCode": "UNKNOWN_COMMAND"
+    }
+}

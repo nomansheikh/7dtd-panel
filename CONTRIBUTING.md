@@ -156,6 +156,26 @@ require a real server or network access. Fixtures in `testdata/` are real
 captured responses; if you need a new one, capture it from a live server
 rather than writing it by hand, and redact any secrets.
 
+### Integration tests
+
+Tests named `TestIntegration*` run against an actual game server and **skip
+unless `SDTD_HOST` is set**, so the default `go test ./...` stays offline:
+
+```bash
+SDTD_HOST=10.0.0.5 \
+SDTD_API_TOKEN_NAME=panel \
+SDTD_API_TOKEN_SECRET=... \
+  go test ./internal/sdtd -run Integration -v
+```
+
+They assert on shape, not on values, since the world changes between runs.
+Their job is to catch the client disagreeing with a real server. Keep them
+read-only — `gettime` is fine, `settime` is not — so they are safe to point
+at a live server.
+
+If you change anything that talks to the game API, run these and paste the
+output in your PR.
+
 ## Reporting bugs and proposing features
 
 Use the issue templates. For a bug, the game version and mod versions

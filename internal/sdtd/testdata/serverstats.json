@@ -1,0 +1,15 @@
+{
+    "data": {
+        "gameTime": {
+            "days": 1,
+            "hours": 7,
+            "minutes": 0
+        },
+        "players": 0,
+        "hostiles": 0,
+        "animals": 0
+    },
+    "meta": {
+        "serverTime": "2026-09-11T00:00:00.0000000+00:00"
+    }
+}

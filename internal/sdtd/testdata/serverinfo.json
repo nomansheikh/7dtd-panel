@@ -1,0 +1,462 @@
+{
+    "data": [
+        {
+            "name": "GameType",
+            "type": "string",
+            "value": "7DTD"
+        },
+        {
+            "name": "GameName",
+            "type": "string",
+            "value": "MyGame"
+        },
+        {
+            "name": "GameHost",
+            "type": "string",
+            "value": "Example 7DTD"
+        },
+        {
+            "name": "ServerDescription",
+            "type": "string",
+            "value": "A 7 Days to Die server"
+        },
+        {
+            "name": "ServerWebsiteURL",
+            "type": "string",
+            "value": ""
+        },
+        {
+            "name": "LevelName",
+            "type": "string",
+            "value": "Navezgane"
+        },
+        {
+            "name": "GameMode",
+            "type": "string",
+            "value": "Survival"
+        },
+        {
+            "name": "IP",
+            "type": "string",
+            "value": "203.0.113.10"
+        },
+        {
+            "name": "SteamID",
+            "type": "string",
+            "value": "90000000000000000"
+        },
+        {
+            "name": "ServerVersion",
+            "type": "string",
+            "value": "V.3.20.10"
+        },
+        {
+            "name": "Platform",
+            "type": "string",
+            "value": "LinuxServer"
+        },
+        {
+            "name": "ServerLoginConfirmationText",
+            "type": "string",
+            "value": ""
+        },
+        {
+            "name": "Region",
+            "type": "string",
+            "value": "NorthAmericaEast"
+        },
+        {
+            "name": "Language",
+            "type": "string",
+            "value": "English"
+        },
+        {
+            "name": "UniqueId",
+            "type": "string",
+            "value": "00000000000000000000000000000000"
+        },
+        {
+            "name": "CombinedPrimaryId",
+            "type": "string",
+            "value": "EOS_00000000000000000000000000000000"
+        },
+        {
+            "name": "CombinedNativeId",
+            "type": "string",
+            "value": ""
+        },
+        {
+            "name": "PlayGroup",
+            "type": "string",
+            "value": "Standalone"
+        },
+        {
+            "name": "SandboxPreset",
+            "type": "string",
+            "value": ""
+        },
+        {
+            "name": "SandboxCode",
+            "type": "string",
+            "value": "AAAJABJACJADJARFBNC"
+        },
+        {
+            "name": "Port",
+            "type": "int",
+            "value": 26900
+        },
+        {
+            "name": "CurrentPlayers",
+            "type": "int",
+            "value": 0
+        },
+        {
+            "name": "MaxPlayers",
+            "type": "int",
+            "value": 8
+        },
+        {
+            "name": "FreePlayerSlots",
+            "type": "int",
+            "value": 8
+        },
+        {
+            "name": "GameDifficulty",
+            "type": "int",
+            "value": -1
+        },
+        {
+            "name": "DayNightLength",
+            "type": "int",
+            "value": 60
+        },
+        {
+            "name": "BloodMoonFrequency",
+            "type": "int",
+            "value": 7
+        },
+        {
+            "name": "BloodMoonRange",
+            "type": "int",
+            "value": 0
+        },
+        {
+            "name": "BloodMoonWarning",
+            "type": "int",
+            "value": 1
+        },
+        {
+            "name": "ZombiesRun",
+            "type": "int",
+            "value": -1
+        },
+        {
+            "name": "ZombieFeralSense",
+            "type": "int",
+            "value": 0
+        },
+        {
+            "name": "ZombieMove",
+            "type": "int",
+            "value": 0
+        },
+        {
+            "name": "ZombieMoveNight",
+            "type": "int",
+            "value": 3
+        },
+        {
+            "name": "ZombieFeralMove",
+            "type": "int",
+            "value": 3
+        },
+        {
+            "name": "ZombieBMMove",
+            "type": "int",
+            "value": 3
+        },
+        {
+            "name": "XPMultiplier",
+            "type": "int",
+            "value": 100
+        },
+        {
+            "name": "DayCount",
+            "type": "int",
+            "value": 3
+        },
+        {
+            "name": "Ping",
+            "type": "int",
+            "value": -1
+        },
+        {
+            "name": "DropOnDeath",
+            "type": "int",
+            "value": 1
+        },
+        {
+            "name": "DropOnQuit",
+            "type": "int",
+            "value": 0
+        },
+        {
+            "name": "BloodMoonEnemyCount",
+            "type": "int",
+            "value": 8
+        },
+        {
+            "name": "EnemyDifficulty",
+            "type": "int",
+            "value": 0
+        },
+        {
+            "name": "PlayerKillingMode",
+            "type": "int",
+            "value": 3
+        },
+        {
+            "name": "CurrentServerTime",
+            "type": "int",
+            "value": 7000
+        },
+        {
+            "name": "DayLightLength",
+            "type": "int",
+            "value": 18
+        },
+        {
+            "name": "BlockDurabilityModifier",
+            "type": "int",
+            "value": -1
+        },
+        {
+            "name": "BlockDamagePlayer",
+            "type": "int",
+            "value": 150
+        },
+        {
+            "name": "BlockDamageAI",
+            "type": "int",
+            "value": 100
+        },
+        {
+            "name": "BlockDamageAIBM",
+            "type": "int",
+            "value": 100
+        },
+        {
+            "name": "AirDropFrequency",
+            "type": "int",
+            "value": 3
+        },
+        {
+            "name": "LootAbundance",
+            "type": "int",
+            "value": 100
+        },
+        {
+            "name": "LootRespawnDays",
+            "type": "int",
+            "value": 7
+        },
+        {
+            "name": "MaxSpawnedZombies",
+            "type": "int",
+            "value": 64
+        },
+        {
+            "name": "LandClaimCount",
+            "type": "int",
+            "value": 5
+        },
+        {
+            "name": "LandClaimSize",
+            "type": "int",
+            "value": 41
+        },
+        {
+            "name": "LandClaimDeadZone",
+            "type": "int",
+            "value": 30
+        },
+        {
+            "name": "LandClaimExpiryTime",
+            "type": "int",
+            "value": 7
+        },
+        {
+            "name": "LandClaimDecayMode",
+            "type": "int",
+            "value": 0
+        },
+        {
+            "name": "LandClaimOnlineDurabilityModifier",
+            "type": "int",
+            "value": 4
+        },
+        {
+            "name": "LandClaimOfflineDurabilityModifier",
+            "type": "int",
+            "value": 4
+        },
+        {
+            "name": "LandClaimOfflineDelay",
+            "type": "int",
+            "value": 0
+        },
+        {
+            "name": "PartySharedKillRange",
+            "type": "int",
+            "value": 100
+        },
+        {
+            "name": "MaxSpawnedAnimals",
+            "type": "int",
+            "value": 50
+        },
+        {
+            "name": "ServerVisibility",
+            "type": "int",
+            "value": 2
+        },
+        {
+            "name": "BedrollExpiryTime",
+            "type": "int",
+            "value": 45
+        },
+        {
+            "name": "BedrollDeadZoneSize",
+            "type": "int",
+            "value": 15
+        },
+        {
+            "name": "WorldSize",
+            "type": "int",
+            "value": 6144
+        },
+        {
+            "name": "MaxChunkAge",
+            "type": "int",
+            "value": -1
+        },
+        {
+            "name": "DeathPenalty",
+            "type": "int",
+            "value": 1
+        },
+        {
+            "name": "QuestProgressionDailyLimit",
+            "type": "int",
+            "value": 4
+        },
+        {
+            "name": "AllowSpawnNearFriend",
+            "type": "int",
+            "value": 2
+        },
+        {
+            "name": "StormFreq",
+            "type": "int",
+            "value": 100
+        },
+        {
+            "name": "AISmellMode",
+            "type": "int",
+            "value": 2
+        },
+        {
+            "name": "JarRefund",
+            "type": "int",
+            "value": 60
+        },
+        {
+            "name": "IsDedicated",
+            "type": "bool",
+            "value": true
+        },
+        {
+            "name": "IsPasswordProtected",
+            "type": "bool",
+            "value": false
+        },
+        {
+            "name": "ShowFriendPlayerOnMap",
+            "type": "bool",
+            "value": true
+        },
+        {
+            "name": "BuildCreate",
+            "type": "bool",
+            "value": false
+        },
+        {
+            "name": "EACEnabled",
+            "type": "bool",
+            "value": true
+        },
+        {
+            "name": "SanctionsIgnored",
+            "type": "bool",
+            "value": false
+        },
+        {
+            "name": "Architecture64",
+            "type": "bool",
+            "value": true
+        },
+        {
+            "name": "StockSettings",
+            "type": "bool",
+            "value": false
+        },
+        {
+            "name": "StockFiles",
+            "type": "bool",
+            "value": true
+        },
+        {
+            "name": "ModdedConfig",
+            "type": "bool",
+            "value": false
+        },
+        {
+            "name": "RequiresMod",
+            "type": "bool",
+            "value": false
+        },
+        {
+            "name": "AirDropMarker",
+            "type": "bool",
+            "value": true
+        },
+        {
+            "name": "EnemySpawnMode",
+            "type": "bool",
+            "value": true
+        },
+        {
+            "name": "IsPublic",
+            "type": "bool",
+            "value": true
+        },
+        {
+            "name": "AllowSpawnNearBackpack",
+            "type": "bool",
+            "value": true
+        },
+        {
+            "name": "AllowCrossplay",
+            "type": "bool",
+            "value": false
+        },
+        {
+            "name": "BiomeProgression",
+            "type": "bool",
+            "value": true
+        }
+    ],
+    "meta": {
+        "serverTime": "2026-09-11T00:00:00.0000000+00:00"
+    }
+}
