@@ -3,6 +3,7 @@ import { AppShell } from "@/components/app-shell";
 import { DashboardPage } from "@/pages/dashboard";
 import { ConsolePage } from "@/pages/console";
 import { EventsPage } from "@/pages/events";
+import { WorldPage } from "@/pages/world";
 import { LoginPage } from "@/pages/login";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -26,6 +27,7 @@ export default function App() {
           <Route path="/" element={<DashboardPage />} />
           <Route path="/console" element={<ConsolePage />} />
           <Route path="/events" element={<EventsPage />} />
+          <Route path="/world" element={<WorldPage />} />
           {/* Unknown paths go home rather than showing nothing. */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

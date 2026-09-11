@@ -38,6 +38,18 @@ type CommandCatalogue interface {
 	Get(ctx context.Context) ([]sdtd.Command, time.Time, error)
 }
 
+// ItemCatalogue and EntityCatalogue back the give and spawn pickers. Search
+// happens here rather than in the browser because the item list is ~2.9 MB.
+type ItemCatalogue interface {
+	Search(ctx context.Context, query string, includeBlocks bool, limit int) ([]sdtd.Item, int, error)
+	Has(ctx context.Context, name string) (bool, error)
+}
+
+type EntityCatalogue interface {
+	Search(ctx context.Context, query string, spawnableOnly bool, limit int) ([]sdtd.EntityClass, int, error)
+	Lookup(ctx context.Context, name string) (sdtd.EntityClass, bool, error)
+}
+
 // EventFeed is the hub browser clients subscribe to.
 type EventFeed interface {
 	Subscribe(backlog int) ([]events.Event, <-chan events.Event, func())
@@ -51,6 +63,8 @@ type Deps struct {
 	State    Snapshotter
 	Game     GameExecutor
 	Commands CommandCatalogue
+	Items    ItemCatalogue
+	Entities EntityCatalogue
 	Events   EventFeed
 	Logger   *slog.Logger
 	Version  string
@@ -65,6 +79,8 @@ type Server struct {
 	state    Snapshotter
 	game     GameExecutor
 	commands CommandCatalogue
+	items    ItemCatalogue
+	entities EntityCatalogue
 	events   EventFeed
 	log      *slog.Logger
 	version  string
@@ -90,6 +106,8 @@ func NewServer(d Deps) *Server {
 		state:    d.State,
 		game:     d.Game,
 		commands: d.Commands,
+		items:    d.Items,
+		entities: d.Entities,
 		events:   d.Events,
 		log:      log,
 		version:  d.Version,
@@ -118,6 +136,17 @@ func (s *Server) Routes() *http.ServeMux {
 	mux.Handle("GET /api/console/commands", s.requireAuth(http.HandlerFunc(s.handleConsoleCommands)))
 	mux.Handle("POST /api/console/execute", s.requireAuth(http.HandlerFunc(s.handleConsoleExecute)))
 	mux.Handle("GET /api/console/history", s.requireAuth(http.HandlerFunc(s.handleConsoleHistory)))
+
+	// World controls. Every one of these becomes a console command, because
+	// the REST API has no write path for game state.
+	mux.Handle("POST /api/world/time", s.requireAuth(http.HandlerFunc(s.handleSetTime)))
+	mux.Handle("POST /api/world/weather", s.requireAuth(http.HandlerFunc(s.handleWeather)))
+	mux.Handle("POST /api/world/spawn", s.requireAuth(http.HandlerFunc(s.handleSpawn)))
+	mux.Handle("POST /api/world/horde", s.requireAuth(http.HandlerFunc(s.handleWanderingHorde)))
+	mux.Handle("POST /api/world/say", s.requireAuth(http.HandlerFunc(s.handleSay)))
+
+	mux.Handle("GET /api/items", s.requireAuth(http.HandlerFunc(s.handleItems)))
+	mux.Handle("GET /api/entities", s.requireAuth(http.HandlerFunc(s.handleEntities)))
 
 	return mux
 }

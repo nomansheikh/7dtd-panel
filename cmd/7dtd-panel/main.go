@@ -117,8 +117,10 @@ func run() error {
 		},
 	})
 
-	commandCatalogue := catalog.NewCommands(gameClient, time.Hour,
-		log.With("component", "catalog"))
+	catalogLog := log.With("component", "catalog")
+	commandCatalogue := catalog.NewCommands(gameClient, time.Hour, catalogLog)
+	itemCatalogue := catalog.NewItems(gameClient, time.Hour, catalogLog)
+	entityCatalogue := catalog.NewEntities(gameClient, time.Hour, catalogLog)
 
 	logStream := sdtd.NewLogStreamer(gameClient, log.With("component", "logstream"))
 
@@ -131,6 +133,8 @@ func run() error {
 		State:    poller,
 		Game:     gameClient,
 		Commands: commandCatalogue,
+		Items:    itemCatalogue,
+		Entities: entityCatalogue,
 		Events:   hub,
 		Logger:   log.With("component", "api"),
 		Version:  version,
@@ -141,6 +145,9 @@ func run() error {
 	go poller.Run(ctx)
 	go apiServer.CleanupSessions(ctx, time.Hour)
 	go logStream.Run(ctx, hub.PublishLog)
+	// The item catalogue is ~2.9 MB, so it is pulled in the background rather
+	// than making the first picker keystroke wait for it.
+	go itemCatalogue.Warm(ctx)
 	go pruneHistory(ctx, db, log)
 
 	mux := http.NewServeMux()

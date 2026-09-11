@@ -375,3 +375,35 @@ func (c *Client) Commands(ctx context.Context) ([]Command, error) {
 	}
 	return env.Commands, nil
 }
+
+// Item is one entry from the server's item catalogue.
+type Item struct {
+	Name          string `json:"name"`
+	LocalizedName string `json:"localizedName"`
+	IsBlock       bool   `json:"isBlock"`
+}
+
+// Items fetches the full item catalogue.
+//
+// This is roughly 2.9 MB on a stock install, which is why it is fetched once
+// and indexed rather than proxied per request.
+func (c *Client) Items(ctx context.Context) ([]Item, error) {
+	return fetch[[]Item](func() (*http.Response, error) {
+		return c.gen.ItemGet(ctx)
+	})
+}
+
+// EntityClass is one spawnable entity type.
+type EntityClass struct {
+	Name string `json:"name"`
+	ID   int    `json:"id"`
+	// ManualSpawnType is "None" for things the game will not let you spawn.
+	ManualSpawnType string `json:"manualSpawnType"`
+}
+
+// EntityClasses fetches the catalogue of entity types.
+func (c *Client) EntityClasses(ctx context.Context) ([]EntityClass, error) {
+	return fetch[[]EntityClass](func() (*http.Response, error) {
+		return c.gen.EntityclassGet(ctx)
+	})
+}

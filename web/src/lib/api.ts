@@ -64,6 +64,28 @@ export interface HistoryEntry {
   ranAt: string;
 }
 
+/** The weather parameters the game's own weather command accepts. */
+export type WeatherSetting = "Clouds" | "Rain" | "SnowFall" | "Wind" | "Temp" | "Fog";
+
+export interface ActionResult {
+  /** Echoed so the operator can see exactly what ran. */
+  command: string;
+  result: string;
+  ranAt: string;
+}
+
+export interface EntityClass {
+  name: string;
+  id: number;
+  manualSpawnType: string;
+}
+
+export interface GameItem {
+  name: string;
+  localizedName: string;
+  isBlock: boolean;
+}
+
 export type EventKind = "log" | "chat" | "join" | "leave" | "status";
 
 export interface PanelEvent {
@@ -163,4 +185,42 @@ export const api = {
 
   history: (limit = 100) =>
     request<{ history: HistoryEntry[] }>(`/api/console/history?limit=${limit}`),
+
+  setTime: (day: number, hour: number, minute: number) =>
+    request<ActionResult>("/api/world/time", {
+      method: "POST",
+      body: JSON.stringify({ day, hour, minute }),
+    }),
+
+  setWeather: (setting: WeatherSetting, value: number) =>
+    request<ActionResult>("/api/world/weather", {
+      method: "POST",
+      body: JSON.stringify({ setting, value }),
+    }),
+
+  resetWeather: () =>
+    request<ActionResult>("/api/world/weather", {
+      method: "POST",
+      body: JSON.stringify({ defaults: true }),
+    }),
+
+  spawn: (entityClass: string, x: number, y: number, z: number, count: number) =>
+    request<ActionResult>("/api/world/spawn", {
+      method: "POST",
+      body: JSON.stringify({ entityClass, x, y, z, count }),
+    }),
+
+  wanderingHorde: () => request<ActionResult>("/api/world/horde", { method: "POST", body: "{}" }),
+
+  say: (message: string) =>
+    request<ActionResult>("/api/world/say", {
+      method: "POST",
+      body: JSON.stringify({ message }),
+    }),
+
+  searchEntities: (q: string) =>
+    request<{ entities: EntityClass[]; total: number }>(`/api/entities?q=${encodeURIComponent(q)}`),
+
+  searchItems: (q: string) =>
+    request<{ items: GameItem[]; total: number }>(`/api/items?q=${encodeURIComponent(q)}`),
 };
