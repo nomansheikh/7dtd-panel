@@ -85,13 +85,20 @@ func (s Snapshot) StatsAge(now time.Time) (time.Duration, bool) {
 	return now.Sub(s.StatsAt), true
 }
 
-// UptimeAt extrapolates uptime to now, so the dashboard ticks up between polls
-// instead of jumping once a minute.
+// UptimeAt reports the game server's uptime as of now.
+//
+// While the server is answering, the last sample is extrapolated forward so the
+// readout advances smoothly between the 30s polls. Once it stops answering the
+// value is frozen at its last sample: continuing to count would assert the
+// server is still running, which is precisely what is no longer known.
 func (s Snapshot) UptimeAt(now time.Time) (time.Duration, bool) {
 	if s.UptimeSampledAt.IsZero() {
 		return 0, false
 	}
-	d := s.Uptime + now.Sub(s.UptimeSampledAt)
+	d := s.Uptime
+	if s.Status == StatusOnline {
+		d += now.Sub(s.UptimeSampledAt)
+	}
 	if d < 0 {
 		return 0, false
 	}

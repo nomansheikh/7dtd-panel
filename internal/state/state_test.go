@@ -360,6 +360,48 @@ func TestUptimeExtrapolatesBetweenPolls(t *testing.T) {
 	}
 }
 
+func TestUptimeFreezesWhenTheServerStopsAnswering(t *testing.T) {
+	base := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
+	client := &fakeClient{
+		stats:    sdtd.ServerStats{},
+		statsErr: []error{nil, errors.New("down")},
+		logPage: sdtd.LogPage{Entries: []sdtd.LogEntry{
+			{ID: 1, Uptime: "60000"},
+		}},
+	}
+	p := New(Options{
+		Client:           client,
+		Interval:         time.Second,
+		FailureThreshold: 1,
+		Logger:           quietLogger(),
+		Now:              func() time.Time { return base },
+	})
+
+	p.Tick(context.Background())
+	online, ok := p.Snapshot().UptimeAt(base.Add(30 * time.Second))
+	if !ok {
+		t.Fatal("no uptime after a successful poll")
+	}
+	if want := 90 * time.Second; online != want {
+		t.Errorf("uptime while online = %s, want %s", online, want)
+	}
+
+	// Server goes away. Uptime must stop advancing: continuing to count would
+	// claim the server is still up, which is exactly what is unknown now.
+	p.Tick(context.Background())
+	if got := p.Snapshot().Status; got != StatusOffline {
+		t.Fatalf("status = %q, want offline", got)
+	}
+
+	frozen, ok := p.Snapshot().UptimeAt(base.Add(10 * time.Minute))
+	if !ok {
+		t.Fatal("uptime disappeared when the server went offline")
+	}
+	if want := 60 * time.Second; frozen != want {
+		t.Errorf("uptime while offline = %s, want it frozen at %s", frozen, want)
+	}
+}
+
 func TestUptimeAbsentBeforeFirstSample(t *testing.T) {
 	p := newTestPoller(t, &fakeClient{}, 3)
 	if _, ok := p.Snapshot().UptimeAt(time.Now()); ok {

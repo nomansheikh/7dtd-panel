@@ -28,6 +28,9 @@
 *.test
 /coverage.out
 
+# Local scratch
+/.screenshots/
+
 # Editor / OS
 .DS_Store
 .idea/

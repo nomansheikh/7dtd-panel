@@ -31,7 +31,18 @@ fmt: ## Format Go sources.
 
 check: vet test ## Everything CI gates on for the backend.
 
-build: ## Build the panel binary.
+frontend: ## Build the UI into internal/web/dist so the binary can embed it.
+	rm -rf internal/web/dist/assets
+	rm -f internal/web/dist/index.html internal/web/dist/favicon.svg
+	cd web && npm ci && npx vp build
+
+frontend-check: ## Format, lint and type-check the UI.
+	cd web && npx vp check
+
+build: frontend ## Build the panel binary with the UI embedded.
+	CGO_ENABLED=0 go build -trimpath -o 7dtd-panel ./cmd/7dtd-panel
+
+build-api-only: ## Build the binary without rebuilding the UI.
 	CGO_ENABLED=0 go build -trimpath -o 7dtd-panel ./cmd/7dtd-panel
 
 run: ## Run the panel from source, reading configuration from .env.

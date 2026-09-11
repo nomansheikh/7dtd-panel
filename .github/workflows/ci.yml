@@ -43,6 +43,36 @@ jobs:
       - name: Build
         run: CGO_ENABLED=0 go build ./...
 
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: web/package.json
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      # Vite+ bundles format, lint and type-check behind one command.
+      - name: Check
+        run: npx vp check
+
+      - name: Build
+        run: npx vp build
+
+      # The Go binary embeds this output, so a frontend that builds but
+      # produces nothing would otherwise pass unnoticed.
+      - name: Verify the build landed where go:embed expects it
+        run: test -f ../internal/web/dist/index.html
+
   spec-drift:
     name: Spec drift
     runs-on: ubuntu-latest
