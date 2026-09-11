@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import type { PanelEvent } from "@/lib/api";
+import { api, type PanelEvent } from "@/lib/api";
+import { useServerId } from "@/hooks/use-servers";
 
 /** How many events the UI keeps in memory before dropping the oldest. */
 const MAX_EVENTS = 2000;
@@ -15,12 +16,21 @@ export type FeedStatus = "connecting" | "open" | "reconnecting";
  * necessarily overlaps what has already been seen.
  */
 export function useEvents() {
+  const serverId = useServerId();
   const [events, setEvents] = useState<PanelEvent[]>([]);
   const [status, setStatus] = useState<FeedStatus>("connecting");
   const seen = useRef<Set<number>>(new Set());
 
   useEffect(() => {
-    const source = new EventSource("/api/events");
+    if (!serverId) return;
+
+    // Switching servers means a different log entirely, so nothing from the
+    // previous one may remain on screen.
+    seen.current = new Set();
+    setEvents([]);
+    setStatus("connecting");
+
+    const source = new EventSource(api.eventsUrl(serverId));
 
     source.addEventListener("open", () => setStatus("open"));
 
@@ -51,7 +61,7 @@ export function useEvents() {
     });
 
     return () => source.close();
-  }, []);
+  }, [serverId]);
 
   return { events, status };
 }

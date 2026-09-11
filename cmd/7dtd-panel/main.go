@@ -20,12 +20,9 @@ import (
 
 	"github.com/nomansheikh/7dtd-panel/internal/api"
 	"github.com/nomansheikh/7dtd-panel/internal/auth"
-	"github.com/nomansheikh/7dtd-panel/internal/catalog"
 	"github.com/nomansheikh/7dtd-panel/internal/config"
-	"github.com/nomansheikh/7dtd-panel/internal/events"
 	"github.com/nomansheikh/7dtd-panel/internal/httpx"
-	"github.com/nomansheikh/7dtd-panel/internal/sdtd"
-	"github.com/nomansheikh/7dtd-panel/internal/state"
+	"github.com/nomansheikh/7dtd-panel/internal/servers"
 	"github.com/nomansheikh/7dtd-panel/internal/store"
 	"github.com/nomansheikh/7dtd-panel/internal/web"
 )
@@ -90,39 +87,17 @@ func run() error {
 		return err
 	}
 
-	// The client is constructed without contacting the server, so the panel
-	// starts and serves a clear disconnected state even if the game server is
+	// Every game server gets its own client, poller, log stream, event hub and
+	// catalogues. None are constructed by contacting anything, so the panel
+	// starts and serves a clear disconnected state even with every game server
 	// down.
-	gameClient, err := sdtd.New(sdtd.Options{
-		BaseURL:     cfg.Game.BaseURL(),
-		TokenName:   cfg.Game.TokenName,
-		TokenSecret: cfg.Game.TokenSecret,
-		Timeout:     10 * time.Second,
-	})
+	registry, err := servers.New(cfg, log, cfg.Panel.PollInterval, cfg.Panel.FailureThreshold)
 	if err != nil {
 		return err
 	}
-
-	// One hub fans the game server's log out to every browser tab, so the
-	// number of connections to the game server does not grow with viewers.
-	hub := events.NewHub()
-
-	poller := state.New(state.Options{
-		Client:           gameClient,
-		Interval:         cfg.Panel.PollInterval,
-		FailureThreshold: cfg.Panel.FailureThreshold,
-		Logger:           log.With("component", "poller"),
-		OnStatusChange: func(from, to state.Status) {
-			hub.PublishStatus("Game server " + string(to) + " (was " + string(from) + ")")
-		},
-	})
-
-	catalogLog := log.With("component", "catalog")
-	commandCatalogue := catalog.NewCommands(gameClient, time.Hour, catalogLog)
-	itemCatalogue := catalog.NewItems(gameClient, time.Hour, catalogLog)
-	entityCatalogue := catalog.NewEntities(gameClient, time.Hour, catalogLog)
-
-	logStream := sdtd.NewLogStreamer(gameClient, log.With("component", "logstream"))
+	for _, srv := range registry.All() {
+		log.Info("game server configured", "id", srv.ID, "name", srv.Name, "url", srv.BaseURL)
+	}
 
 	sessions := auth.NewSessions(db, cfg.Panel.SessionTTL, cfg.Panel.TrustProxy)
 
@@ -130,24 +105,15 @@ func run() error {
 		Config:   cfg,
 		Store:    db,
 		Sessions: sessions,
-		State:    poller,
-		Game:     gameClient,
-		Commands: commandCatalogue,
-		Items:    itemCatalogue,
-		Entities: entityCatalogue,
-		Events:   hub,
+		Servers:  registry,
 		Logger:   log.With("component", "api"),
 		Version:  version,
 	})
 
 	// The poller and the session sweeper run for the life of the process and
 	// stop when ctx is cancelled.
-	go poller.Run(ctx)
+	go registry.Run(ctx)
 	go apiServer.CleanupSessions(ctx, time.Hour)
-	go logStream.Run(ctx, hub.PublishLog)
-	// The item catalogue is ~2.9 MB, so it is pulled in the background rather
-	// than making the first picker keystroke wait for it.
-	go itemCatalogue.Warm(ctx)
 	go pruneHistory(ctx, db, log)
 
 	mux := http.NewServeMux()

@@ -11,13 +11,37 @@ export interface User {
   username: string;
 }
 
+/** One configured game server, as the switcher sees it. */
+export interface ServerSummary {
+  id: string;
+  name: string;
+  status: ServerStatus;
+  version?: string;
+  world?: string;
+  players: number;
+  maxPlayers: number;
+  /** What a player types into the game's connect-to-IP box. */
+  connect?: string;
+}
+
 export interface Dashboard {
   status: ServerStatus;
   /** True when the figures are cached from an earlier poll rather than fresh. */
   stale: boolean;
   ageSeconds: number;
   lastError?: string;
-  server: { version: string; gameMode: string };
+  server: {
+    id: string;
+    name: string;
+    version: string;
+    gameMode: string;
+    /** What a player types into the game's connect-to-IP box. */
+    connect?: string;
+    description?: string;
+    region?: string;
+    /** How this panel reaches the server. Never contains credentials. */
+    panelUrl: string;
+  };
   players: { online: number; max: number };
   world: {
     name: string;
@@ -162,6 +186,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 
+/** Builds the path for a call against one game server. */
+function forServer(serverId: string, path: string): string {
+  return `/api/servers/${encodeURIComponent(serverId)}${path}`;
+}
+
 export const api = {
   login: (username: string, password: string) =>
     request<User>("/api/auth/login", {
@@ -173,54 +202,70 @@ export const api = {
 
   me: () => request<User>("/api/auth/me"),
 
-  dashboard: () => request<Dashboard>("/api/dashboard"),
+  servers: () => request<{ servers: ServerSummary[]; default: string }>("/api/servers"),
 
-  commands: () => request<{ commands: CommandInfo[]; fetchedAt: string }>("/api/console/commands"),
+  dashboard: (serverId: string) => request<Dashboard>(forServer(serverId, "/dashboard")),
 
-  execute: (command: string) =>
-    request<ExecuteResult>("/api/console/execute", {
+  commands: (serverId: string) =>
+    request<{ commands: CommandInfo[]; fetchedAt: string }>(
+      forServer(serverId, "/console/commands"),
+    ),
+
+  execute: (serverId: string, command: string) =>
+    request<ExecuteResult>(forServer(serverId, "/console/execute"), {
       method: "POST",
       body: JSON.stringify({ command }),
     }),
 
-  history: (limit = 100) =>
-    request<{ history: HistoryEntry[] }>(`/api/console/history?limit=${limit}`),
+  history: (serverId: string, limit = 100) =>
+    request<{ history: HistoryEntry[] }>(forServer(serverId, `/console/history?limit=${limit}`)),
 
-  setTime: (day: number, hour: number, minute: number) =>
-    request<ActionResult>("/api/world/time", {
+  setTime: (serverId: string, day: number, hour: number, minute: number) =>
+    request<ActionResult>(forServer(serverId, "/world/time"), {
       method: "POST",
       body: JSON.stringify({ day, hour, minute }),
     }),
 
-  setWeather: (setting: WeatherSetting, value: number) =>
-    request<ActionResult>("/api/world/weather", {
+  setWeather: (serverId: string, setting: WeatherSetting, value: number) =>
+    request<ActionResult>(forServer(serverId, "/world/weather"), {
       method: "POST",
       body: JSON.stringify({ setting, value }),
     }),
 
-  resetWeather: () =>
-    request<ActionResult>("/api/world/weather", {
+  resetWeather: (serverId: string) =>
+    request<ActionResult>(forServer(serverId, "/world/weather"), {
       method: "POST",
       body: JSON.stringify({ defaults: true }),
     }),
 
-  spawn: (entityClass: string, x: number, y: number, z: number, count: number) =>
-    request<ActionResult>("/api/world/spawn", {
+  spawn: (serverId: string, entityClass: string, x: number, y: number, z: number, count: number) =>
+    request<ActionResult>(forServer(serverId, "/world/spawn"), {
       method: "POST",
       body: JSON.stringify({ entityClass, x, y, z, count }),
     }),
 
-  wanderingHorde: () => request<ActionResult>("/api/world/horde", { method: "POST", body: "{}" }),
+  wanderingHorde: (serverId: string) =>
+    request<ActionResult>(forServer(serverId, "/world/horde"), {
+      method: "POST",
+      body: "{}",
+    }),
 
-  say: (message: string) =>
-    request<ActionResult>("/api/world/say", {
+  say: (serverId: string, message: string) =>
+    request<ActionResult>(forServer(serverId, "/world/say"), {
       method: "POST",
       body: JSON.stringify({ message }),
     }),
 
-  searchEntities: (q: string) =>
-    request<{ entities: EntityClass[]; total: number }>(`/api/entities?q=${encodeURIComponent(q)}`),
+  searchEntities: (serverId: string, q: string) =>
+    request<{ entities: EntityClass[]; total: number }>(
+      forServer(serverId, `/entities?q=${encodeURIComponent(q)}`),
+    ),
 
-  searchItems: (q: string) =>
-    request<{ items: GameItem[]; total: number }>(`/api/items?q=${encodeURIComponent(q)}`),
+  searchItems: (serverId: string, q: string) =>
+    request<{ items: GameItem[]; total: number }>(
+      forServer(serverId, `/items?q=${encodeURIComponent(q)}`),
+    ),
+
+  /** The browser-facing event stream for one server. */
+  eventsUrl: (serverId: string) => forServer(serverId, "/events"),
 };

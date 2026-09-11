@@ -4,6 +4,7 @@ import { QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-qu
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/hooks/use-auth";
+import { ServersProvider } from "@/hooks/use-servers";
 import { ApiError } from "@/lib/api";
 import App from "./App";
 import "./index.css";
@@ -37,8 +38,10 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <App />
-        <Toaster />
+        <ServersProvider>
+          <App />
+          <Toaster />
+        </ServersProvider>
       </AuthProvider>
     </QueryClientProvider>
   </StrictMode>,

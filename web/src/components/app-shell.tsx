@@ -3,6 +3,7 @@ import { NavLink } from "react-router-dom";
 import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConnectionStatus } from "@/components/connection-status";
+import { ServerSwitcher } from "@/components/server-switcher";
 import { useAuth } from "@/hooks/use-auth";
 import { useDashboard } from "@/hooks/use-dashboard";
 import { cn } from "@/lib/utils";
@@ -23,6 +24,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       <header className="border-b border-border">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-6 py-3">
           <span className="font-semibold">7 Days to Die admin</span>
+
+          <ServerSwitcher />
 
           <nav className="flex gap-1">
             {NAV.map((item) => (

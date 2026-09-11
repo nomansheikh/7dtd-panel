@@ -60,12 +60,12 @@ func worldHarness(t *testing.T) (*harness, *fakeGame, *http.Cookie) {
 	t.Helper()
 	h := newHarness(t, state.Snapshot{Status: state.StatusOnline})
 	game := &fakeGame{}
-	h.server.game = game
-	h.server.entities = &fakeEntities{classes: []sdtd.EntityClass{
+	h.srv.Client = game
+	h.srv.Entities = &fakeEntities{classes: []sdtd.EntityClass{
 		{Name: "zombieBoe", ID: 1234, ManualSpawnType: "Spawn"},
 		{Name: "playerMale", ID: 2001454542, ManualSpawnType: "None"},
 	}}
-	h.server.items = &fakeItems{items: []sdtd.Item{
+	h.srv.Items = &fakeItems{items: []sdtd.Item{
 		{Name: "meleeToolStoneAxe", LocalizedName: "Stone Axe"},
 	}}
 	return h, game, h.login(t, "admin", testPassword)

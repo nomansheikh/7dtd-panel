@@ -14,6 +14,8 @@ import (
 
 	"github.com/nomansheikh/7dtd-panel/internal/auth"
 	"github.com/nomansheikh/7dtd-panel/internal/config"
+	"github.com/nomansheikh/7dtd-panel/internal/events"
+	"github.com/nomansheikh/7dtd-panel/internal/servers"
 	"github.com/nomansheikh/7dtd-panel/internal/state"
 	"github.com/nomansheikh/7dtd-panel/internal/store"
 )
@@ -35,10 +37,30 @@ type fakeState struct{ snap state.Snapshot }
 
 func (f fakeState) Snapshot() state.Snapshot { return f.snap }
 
+// testServerID is the server every test request is scoped to.
+const testServerID = "test"
+
 type harness struct {
 	server  *Server
 	handler http.Handler
 	store   *store.Store
+	// game is the fake this harness's server executes against.
+	game *fakeGame
+	// srv is the registry entry, so a test can swap a collaborator.
+	srv *servers.Server
+}
+
+// scoped turns a bare path into its server-scoped form, so tests read as the
+// endpoint they are exercising rather than as URL plumbing.
+func scoped(path string) string {
+	// Panel-level endpoints are not scoped to a game server.
+	if path == "/api/health" || path == "/api/servers" ||
+		strings.HasPrefix(path, "/api/auth/") {
+		return path
+	}
+	// The rest move under the server prefix, so "/api/world/time" becomes
+	// "/api/servers/test/world/time" rather than gaining a second "/api".
+	return "/api/servers/" + testServerID + strings.TrimPrefix(path, "/api")
 }
 
 func newHarness(t *testing.T, snap state.Snapshot) *harness {
@@ -58,15 +80,28 @@ func newHarness(t *testing.T, snap state.Snapshot) *harness {
 	cfg.Panel.AdminUsername = "admin"
 	cfg.Panel.SessionTTL = time.Hour
 
+	game := &fakeGame{}
+	srv := &servers.Server{
+		ID:       testServerID,
+		Name:     "Test server",
+		BaseURL:  "http://game.test:8080",
+		Client:   game,
+		Poller:   fakeState{snap: snap},
+		Events:   events.NewHub(),
+		Commands: &fakeCatalogue{},
+		Items:    &fakeItems{},
+		Entities: &fakeEntities{},
+	}
+
 	s := NewServer(Deps{
 		Config:   cfg,
 		Store:    db,
 		Sessions: auth.NewSessions(db, time.Hour, false),
-		State:    fakeState{snap: snap},
+		Servers:  servers.NewRegistry(srv),
 		Logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
 		Version:  "test",
 	})
-	return &harness{server: s, handler: s.Routes(), store: db}
+	return &harness{server: s, handler: s.Routes(), store: db, game: game, srv: srv}
 }
 
 // login performs a real login and returns the session cookie.
@@ -88,6 +123,7 @@ func (h *harness) login(t *testing.T, username, password string) *http.Cookie {
 
 func (h *harness) request(t *testing.T, method, path, body string, cookie *http.Cookie) *http.Request {
 	t.Helper()
+	path = scoped(path)
 	var r *http.Request
 	if body == "" {
 		r = httptest.NewRequest(method, path, nil)
@@ -136,12 +172,19 @@ func TestHealthIsPublicAndSurvivesGameServerBeingDown(t *testing.T) {
 	if body["status"] != "ok" {
 		t.Errorf("panel status = %v, want ok", body["status"])
 	}
-	game, _ := body["game"].(map[string]any)
+	games, _ := body["games"].([]any)
+	if len(games) != 1 {
+		t.Fatalf("games = %v, want one entry", games)
+	}
+	game, _ := games[0].(map[string]any)
 	if game["status"] != "offline" {
 		t.Errorf("game status = %v, want offline", game["status"])
 	}
 	if game["error"] != "connection refused" {
 		t.Errorf("game error = %v, want the real reason", game["error"])
+	}
+	if game["id"] != testServerID {
+		t.Errorf("game id = %v, want %s", game["id"], testServerID)
 	}
 }
 
@@ -149,7 +192,8 @@ func TestHealthHidesErrorWhileMerelyDegraded(t *testing.T) {
 	h := newHarness(t, state.Snapshot{Status: state.StatusDegraded, LastError: "timeout"})
 	rec := h.do(t, httptest.NewRequest(http.MethodGet, "/api/health", nil))
 
-	game, _ := decode[map[string]any](t, rec)["game"].(map[string]any)
+	games, _ := decode[map[string]any](t, rec)["games"].([]any)
+	game, _ := games[0].(map[string]any)
 	if _, present := game["error"]; present {
 		t.Error("a single blip should not surface an error in health")
 	}

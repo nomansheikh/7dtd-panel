@@ -35,7 +35,14 @@ thing we integrate with is poorly documented:
 
 A 7 Days to Die dedicated server with the Allocs webinterface mod and the
 web dashboard enabled. It does not need to be on the same machine — the
-panel is designed for a separate host.
+panel is designed for a separate host, and supports several servers at once.
+
+Every game-facing endpoint is scoped to one server:
+`/api/servers/{server}/dashboard`. Panel-level endpoints (`/api/health`,
+`/api/auth/*`, `/api/servers`) are not. Nothing is shared between servers —
+each has its own client, poller, log stream, event hub and catalogues —
+because mixing them would show an operator one world while they believed
+they were looking at another.
 
 ## Getting set up
 

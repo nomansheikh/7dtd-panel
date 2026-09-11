@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "@/components/app-shell";
 import { DashboardPage } from "@/pages/dashboard";
@@ -6,6 +7,7 @@ import { EventsPage } from "@/pages/events";
 import { WorldPage } from "@/pages/world";
 import { LoginPage } from "@/pages/login";
 import { useAuth } from "@/hooks/use-auth";
+import { useServers } from "@/hooks/use-servers";
 
 export default function App() {
   const { user, loading } = useAuth();
@@ -23,15 +25,48 @@ export default function App() {
   return (
     <BrowserRouter>
       <AppShell>
-        <Routes>
-          <Route path="/" element={<DashboardPage />} />
-          <Route path="/console" element={<ConsolePage />} />
-          <Route path="/events" element={<EventsPage />} />
-          <Route path="/world" element={<WorldPage />} />
-          {/* Unknown paths go home rather than showing nothing. */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        <RequireServer>
+          <Routes>
+            <Route path="/" element={<DashboardPage />} />
+            <Route path="/console" element={<ConsolePage />} />
+            <Route path="/events" element={<EventsPage />} />
+            <Route path="/world" element={<WorldPage />} />
+            {/* Unknown paths go home rather than showing nothing. */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </RequireServer>
       </AppShell>
     </BrowserRouter>
   );
+}
+
+/**
+ * Holds page content back until a game server has been chosen.
+ *
+ * Every page is scoped to a server, and the list of servers arrives over the
+ * network. Rendering before it does meant each page briefly decided it had no
+ * data and showed a hard error, which looked like a failure rather than a
+ * first paint.
+ */
+function RequireServer({ children }: { children: ReactNode }) {
+  const { currentId, servers, loading } = useServers();
+
+  if (loading || (!currentId && servers.length === 0)) {
+    return (
+      <div className="py-12 text-sm text-muted-foreground" aria-busy="true">
+        Loading servers…
+      </div>
+    );
+  }
+
+  if (!currentId) {
+    return (
+      <p className="py-12 text-sm text-muted-foreground">
+        No game servers are configured. Set SDTD_HOST, or SDTD_SERVERS for more than one, and
+        restart the panel.
+      </p>
+    );
+  }
+
+  return <>{children}</>;
 }

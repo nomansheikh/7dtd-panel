@@ -1,6 +1,7 @@
 package api
 
 import (
+	"cmp"
 	"net/http"
 	"time"
 
@@ -28,12 +29,24 @@ type dashboardResponse struct {
 }
 
 type dashboardServer struct {
+	// ID and Name identify which configured server this is.
+	ID   string `json:"id"`
+	Name string `json:"name"`
 	// Version is the game server's own ServerVersion string. It is not
 	// identical to what the console version command reports for the same
 	// build; reading it here avoids executing a command, which would write a
 	// line into the log feed on every poll.
 	Version  string `json:"version"`
 	GameMode string `json:"gameMode"`
+	// Connect is what a player types into the game's connect-to-IP box. It is
+	// the address the server advertises for itself, which is not necessarily
+	// how the panel reaches it.
+	Connect     string `json:"connect,omitempty"`
+	Description string `json:"description,omitempty"`
+	Region      string `json:"region,omitempty"`
+	// PanelURL is how this panel reaches the server, for diagnosing a
+	// misconfigured deployment. It never contains credentials.
+	PanelURL string `json:"panelUrl"`
 }
 
 type dashboardPlayers struct {
@@ -62,15 +75,22 @@ type dashboardBloodmoon struct {
 }
 
 func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
-	snap := s.state.Snapshot()
+	srv := serverFrom(r.Context())
+	snap := srv.Poller.Snapshot()
 	now := s.now()
 
 	resp := dashboardResponse{
 		Status:    string(snap.Status),
 		LastError: snap.LastError,
 		Server: dashboardServer{
-			Version:  snap.Version,
-			GameMode: snap.GameMode,
+			ID:          srv.ID,
+			Name:        cmp.Or(snap.ServerName, srv.Name),
+			Version:     snap.Version,
+			GameMode:    snap.GameMode,
+			Connect:     snap.ConnectAddress,
+			Description: snap.Description,
+			Region:      snap.Region,
+			PanelURL:    srv.BaseURL,
 		},
 		Players: dashboardPlayers{
 			Online: snap.Stats.Players,

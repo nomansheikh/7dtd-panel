@@ -49,7 +49,7 @@ func boolptr(b bool) *bool    { return &b }
 
 func TestConsoleCommandsCarriesServerHelpAndPanelTier(t *testing.T) {
 	h := newHarness(t, state.Snapshot{})
-	h.server.commands = &fakeCatalogue{items: []sdtd.Command{
+	h.srv.Commands = &fakeCatalogue{items: []sdtd.Command{
 		{Command: "gettime", Overloads: []string{"gettime"}, Description: "shows time",
 			Help: strptr("Usage:\n  gettime"), Allowed: boolptr(true)},
 		{Command: "shutdown", Overloads: []string{"shutdown"}, Description: "stops the server"},
@@ -103,7 +103,7 @@ func TestConsoleCommandsCarriesServerHelpAndPanelTier(t *testing.T) {
 func TestConsoleCommandsMarksBlockedWhenDestructiveDisabled(t *testing.T) {
 	h := newHarness(t, state.Snapshot{})
 	h.server.cfg.Panel.AllowDestructive = false
-	h.server.commands = &fakeCatalogue{items: []sdtd.Command{
+	h.srv.Commands = &fakeCatalogue{items: []sdtd.Command{
 		{Command: "shutdown", Description: "stops the server"},
 		{Command: "gettime", Description: "shows time"},
 	}}
@@ -134,7 +134,7 @@ func TestConsoleExecuteRunsAndRecordsHistory(t *testing.T) {
 	game := &fakeGame{result: sdtd.CommandResult{
 		Command: "gettime", Parameters: "", Result: "Day 1, 07:00\n",
 	}}
-	h.server.game = game
+	h.srv.Client = game
 	cookie := h.login(t, "admin", testPassword)
 
 	rec := h.do(t, h.request(t, http.MethodPost, "/api/console/execute",
@@ -173,7 +173,7 @@ func TestConsoleExecuteRunsAndRecordsHistory(t *testing.T) {
 
 func TestConsoleExecuteSurfacesTheRealServerError(t *testing.T) {
 	h := newHarness(t, state.Snapshot{})
-	h.server.game = &fakeGame{err: &sdtd.APIError{
+	h.srv.Client = &fakeGame{err: &sdtd.APIError{
 		Status:           http.StatusNotFound,
 		ErrorCode:        sdtd.CodeUnknownCommand,
 		ExceptionMessage: "",
@@ -228,7 +228,7 @@ func TestConsoleExecuteRejectsBadInput(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			h := newHarness(t, state.Snapshot{})
 			game := &fakeGame{}
-			h.server.game = game
+			h.srv.Client = game
 			cookie := h.login(t, "admin", testPassword)
 
 			rec := h.do(t, h.request(t, http.MethodPost, "/api/console/execute", tt.body, cookie))
@@ -249,7 +249,7 @@ func TestDestructiveCommandBlockedByConfig(t *testing.T) {
 	h := newHarness(t, state.Snapshot{})
 	h.server.cfg.Panel.AllowDestructive = false
 	game := &fakeGame{}
-	h.server.game = game
+	h.srv.Client = game
 	cookie := h.login(t, "admin", testPassword)
 
 	rec := h.do(t, h.request(t, http.MethodPost, "/api/console/execute",
@@ -270,7 +270,7 @@ func TestDestructiveCommandRunsWhenAllowed(t *testing.T) {
 	h := newHarness(t, state.Snapshot{})
 	h.server.cfg.Panel.AllowDestructive = true
 	game := &fakeGame{}
-	h.server.game = game
+	h.srv.Client = game
 	cookie := h.login(t, "admin", testPassword)
 
 	rec := h.do(t, h.request(t, http.MethodPost, "/api/console/execute",
@@ -302,7 +302,7 @@ func TestConsoleEndpointsRequireAuth(t *testing.T) {
 
 func TestCommandCatalogueFailureIsRelayed(t *testing.T) {
 	h := newHarness(t, state.Snapshot{})
-	h.server.commands = &fakeCatalogue{err: errors.New("connection refused")}
+	h.srv.Commands = &fakeCatalogue{err: errors.New("connection refused")}
 	cookie := h.login(t, "admin", testPassword)
 
 	rec := h.do(t, h.request(t, http.MethodGet, "/api/console/commands", "", cookie))
@@ -319,7 +319,7 @@ func TestEventsStreamsBacklogThenLiveEvents(t *testing.T) {
 	hub.PublishStatus("earlier event")
 
 	h := newHarness(t, state.Snapshot{})
-	h.server.events = hub
+	h.srv.Events = hub
 	cookie := h.login(t, "admin", testPassword)
 
 	req := h.request(t, http.MethodGet, "/api/events?backlog=10", "", cookie)
@@ -357,7 +357,7 @@ func TestEventsStreamsBacklogThenLiveEvents(t *testing.T) {
 
 func TestEventsRejectsBadBacklog(t *testing.T) {
 	h := newHarness(t, state.Snapshot{})
-	h.server.events = events.NewHub()
+	h.srv.Events = events.NewHub()
 	cookie := h.login(t, "admin", testPassword)
 
 	rec := h.do(t, h.request(t, http.MethodGet, "/api/events?backlog=-5", "", cookie))

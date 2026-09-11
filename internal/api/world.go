@@ -39,7 +39,7 @@ func (s *Server) runAction(w http.ResponseWriter, r *http.Request, command strin
 	user, _ := UserFrom(r.Context())
 	s.log.Info("world action", "username", user.Username, "command", command)
 
-	result, err := s.game.Execute(r.Context(), command)
+	result, err := serverFrom(r.Context()).Client.Execute(r.Context(), command)
 
 	// Recorded in the same history as the console, so everything an operator
 	// did is in one place regardless of which surface they used.
@@ -120,7 +120,7 @@ func (s *Server) handleSpawn(w http.ResponseWriter, r *http.Request) {
 
 	// Validated against the server's own catalogue, so an unknown name is
 	// refused here rather than becoming a command that fails in the game.
-	class, found, err := s.entities.Lookup(r.Context(), req.EntityClass)
+	class, found, err := serverFrom(r.Context()).Entities.Lookup(r.Context(), req.EntityClass)
 	if err != nil {
 		s.writeGameError(w, err, "could not load the entity list")
 		return
@@ -169,7 +169,7 @@ func (s *Server) handleWanderingHorde(w http.ResponseWriter, r *http.Request) {
 // handleItems serves a ranked slice of the item catalogue for the picker.
 func (s *Server) handleItems(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
-	items, total, err := s.items.Search(
+	items, total, err := serverFrom(r.Context()).Items.Search(
 		r.Context(), query.Get("q"), query.Get("blocks") == "true", 50)
 	if err != nil {
 		s.writeGameError(w, err, "could not load the item list")
@@ -184,7 +184,7 @@ func (s *Server) handleItems(w http.ResponseWriter, r *http.Request) {
 // handleEntities serves spawnable entity classes for the picker.
 func (s *Server) handleEntities(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
-	entities, total, err := s.entities.Search(
+	entities, total, err := serverFrom(r.Context()).Entities.Search(
 		r.Context(), query.Get("q"), query.Get("all") != "true", 50)
 	if err != nil {
 		s.writeGameError(w, err, "could not load the entity list")

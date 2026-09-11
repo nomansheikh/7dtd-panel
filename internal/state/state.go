@@ -11,6 +11,8 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"net"
+	"strconv"
 	"sync"
 	"time"
 
@@ -60,6 +62,14 @@ type Snapshot struct {
 	GameMode       string
 	CurrentPlayers int
 	MaxPlayers     int
+	// ConnectAddress is what a player types into the game's "connect to IP"
+	// box. The address the server reports is its own outward-facing one, which
+	// is not necessarily how the panel reaches it.
+	ConnectAddress string
+	ServerName     string
+	Description    string
+	Region         string
+	PasswordSet    bool
 	InfoAt         time.Time
 
 	// Uptime is the game server's uptime as of UptimeSampledAt. It comes from
@@ -315,6 +325,12 @@ func (p *Poller) pollInfo(ctx context.Context) {
 	p.snap.GameMode = info.Str("GameMode")
 	p.snap.CurrentPlayers = int(info.Int("CurrentPlayers"))
 	p.snap.MaxPlayers = int(info.Int("MaxPlayers"))
+	p.snap.ServerName = info.Str("GameHost")
+	p.snap.Description = info.Str("ServerDescription")
+	p.snap.Region = info.Str("Region")
+	if ip, port := info.Str("IP"), info.Int("Port"); ip != "" && port > 0 {
+		p.snap.ConnectAddress = net.JoinHostPort(ip, strconv.Itoa(int(port)))
+	}
 	p.snap.InfoAt = p.now()
 }
 

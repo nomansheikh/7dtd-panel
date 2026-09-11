@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BloodMoon } from "@/components/blood-moon";
 import { useDashboard } from "@/hooks/use-dashboard";
@@ -84,6 +86,12 @@ export function DashboardPage() {
               <dt className="text-muted-foreground">Version</dt>
               <dd className="readout">{server.version || "unknown"}</dd>
             </div>
+            {server.region && (
+              <div className="flex gap-2">
+                <dt className="text-muted-foreground">Region</dt>
+                <dd>{server.region}</dd>
+              </div>
+            )}
           </dl>
         </section>
 
@@ -104,6 +112,8 @@ export function DashboardPage() {
         )}
       </div>
 
+      <ConnectionDetails server={server} />
+
       {/* One container with internal dividers, not four floating cards. */}
       <section
         aria-label="Current readings"
@@ -119,5 +129,64 @@ export function DashboardPage() {
         />
       </section>
     </div>
+  );
+}
+
+/**
+ * How to actually join this server.
+ *
+ * The address is the one the game server advertises for itself, which is not
+ * necessarily how the panel reaches it: the panel may sit on the same LAN while
+ * players connect from outside. Both are shown, labelled, rather than implying
+ * they are interchangeable.
+ */
+function ConnectionDetails({
+  server,
+}: {
+  server: NonNullable<ReturnType<typeof useDashboard>["data"]>["server"];
+}) {
+  const [copied, setCopied] = useState(false);
+
+  async function copy(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard access is denied outside a secure context, which a LAN panel
+      // on plain HTTP often is. The address is on screen to copy by hand.
+    }
+  }
+
+  return (
+    <section aria-label="Connection" className="rounded-md border border-border bg-card p-5">
+      <h2 className="text-sm font-medium text-muted-foreground">Joining</h2>
+
+      {server.description && <p className="mt-2 text-sm">{server.description}</p>}
+
+      <dl className="mt-3 space-y-2 text-sm">
+        {server.connect ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <dt className="text-muted-foreground">Connect to</dt>
+            <dd className="readout font-mono">{server.connect}</dd>
+            <Button variant="outline" size="sm" onClick={() => void copy(server.connect!)}>
+              {copied ? "Copied" : "Copy"}
+            </Button>
+          </div>
+        ) : (
+          <div className="text-muted-foreground">The server has not reported its address yet.</div>
+        )}
+
+        <div className="flex flex-wrap items-center gap-2">
+          <dt className="text-muted-foreground">Panel reaches it at</dt>
+          <dd className="readout font-mono text-muted-foreground">{server.panelUrl}</dd>
+        </div>
+      </dl>
+
+      <p className="mt-3 text-xs text-muted-foreground">
+        In game: Join a Game, then Connect to IP. The address above is the one the server
+        advertises; on the same network you may need its local address instead.
+      </p>
+    </section>
   );
 }

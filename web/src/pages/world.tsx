@@ -20,6 +20,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useDashboard } from "@/hooks/use-dashboard";
+import { useServerId } from "@/hooks/use-servers";
 import { api, ApiError, type ActionResult, type WeatherSetting } from "@/lib/api";
 import { BLOOD_MOON_CYCLE } from "@/lib/format";
 
@@ -55,6 +56,7 @@ const WEATHER: { value: WeatherSetting; label: string; min: number; max: number;
 
 export function WorldPage() {
   const queryClient = useQueryClient();
+  const serverId = useServerId();
   const { data: dashboard } = useDashboard();
 
   // Every action funnels through here so success and failure are reported the
@@ -71,8 +73,10 @@ export function WorldPage() {
       toast.success(result.result.trim() || "Done", {
         description: result.command,
       });
-      void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-      void queryClient.invalidateQueries({ queryKey: ["console", "history"] });
+      void queryClient.invalidateQueries({ queryKey: ["dashboard", serverId] });
+      void queryClient.invalidateQueries({
+        queryKey: ["console", "history", serverId],
+      });
     },
     onError: (error) => {
       toast.error("That did not work", {
@@ -90,10 +94,14 @@ export function WorldPage() {
       <h1 className="text-xl font-semibold">World</h1>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <TimeControls dashboard={dashboard} onAsk={ask} />
-        <WeatherControls onAsk={ask} onReset={() => action.mutate(api.resetWeather)} />
-        <SpawnControls onAsk={ask} />
-        <BroadcastControls onAsk={ask} />
+        <TimeControls dashboard={dashboard} serverId={serverId} onAsk={ask} />
+        <WeatherControls
+          serverId={serverId}
+          onAsk={ask}
+          onReset={() => action.mutate(() => api.resetWeather(serverId))}
+        />
+        <SpawnControls serverId={serverId} onAsk={ask} />
+        <BroadcastControls serverId={serverId} onAsk={ask} />
       </div>
 
       <Dialog open={confirm !== null} onOpenChange={(open) => !open && setConfirm(null)}>
@@ -127,9 +135,11 @@ type Ask = (title: string, body: string, run: () => Promise<ActionResult>) => vo
 
 function TimeControls({
   dashboard,
+  serverId,
   onAsk,
 }: {
   dashboard: ReturnType<typeof useDashboard>["data"];
+  serverId: string;
   onAsk: Ask;
 }) {
   const [day, setDay] = useState("");
@@ -182,7 +192,7 @@ function TimeControls({
             onAsk(
               "Change the time?",
               `The clock will jump to day ${d}, ${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}.`,
-              () => api.setTime(d, h, m),
+              () => api.setTime(serverId, d, h, m),
             );
           }}
           disabled={hour === ""}
@@ -199,7 +209,7 @@ function TimeControls({
               onAsk(
                 "Bring on the blood moon?",
                 `The clock will jump to day ${nextBloodMoonDay} at 21:00, just before the horde arrives.`,
-                () => api.setTime(nextBloodMoonDay, 21, 0),
+                () => api.setTime(serverId, nextBloodMoonDay, 21, 0),
               )
             }
           >
@@ -216,7 +226,15 @@ function TimeControls({
   );
 }
 
-function WeatherControls({ onAsk, onReset }: { onAsk: Ask; onReset: () => void }) {
+function WeatherControls({
+  serverId,
+  onAsk,
+  onReset,
+}: {
+  serverId: string;
+  onAsk: Ask;
+  onReset: () => void;
+}) {
   const [setting, setSetting] = useState<WeatherSetting>("Rain");
   const [value, setValue] = useState("0.5");
   const knob = WEATHER.find((w) => w.value === setting)!;
@@ -258,7 +276,7 @@ function WeatherControls({ onAsk, onReset }: { onAsk: Ask; onReset: () => void }
             onAsk(
               "Change the weather?",
               `${knob.label} will be forced to ${value} until you reset it.`,
-              () => api.setWeather(setting, Number(value)),
+              () => api.setWeather(serverId, setting, Number(value)),
             )
           }
         >
@@ -272,15 +290,15 @@ function WeatherControls({ onAsk, onReset }: { onAsk: Ask; onReset: () => void }
   );
 }
 
-function SpawnControls({ onAsk }: { onAsk: Ask }) {
+function SpawnControls({ serverId, onAsk }: { serverId: string; onAsk: Ask }) {
   const [query, setQuery] = useState("zombie");
   const [entityClass, setEntityClass] = useState("");
   const [coords, setCoords] = useState({ x: "0", y: "-1", z: "0" });
   const [count, setCount] = useState("1");
 
   const { data } = useQuery({
-    queryKey: ["entities", query],
-    queryFn: () => api.searchEntities(query),
+    queryKey: ["entities", serverId, query],
+    queryFn: () => api.searchEntities(serverId, query),
     enabled: query.trim().length > 0,
   });
 
@@ -345,6 +363,7 @@ function SpawnControls({ onAsk }: { onAsk: Ask }) {
                 `${count} × ${entityClass} at ${coords.x}, ${coords.y}, ${coords.z}.`,
                 () =>
                   api.spawn(
+                    serverId,
                     entityClass,
                     Number(coords.x),
                     Number(coords.y),
@@ -370,7 +389,7 @@ function SpawnControls({ onAsk }: { onAsk: Ask }) {
               onAsk(
                 "Send a wandering horde?",
                 "A wandering horde will make its way across the map. This is not a blood moon.",
-                api.wanderingHorde,
+                () => api.wanderingHorde(serverId),
               )
             }
           >
@@ -382,7 +401,7 @@ function SpawnControls({ onAsk }: { onAsk: Ask }) {
   );
 }
 
-function BroadcastControls({ onAsk }: { onAsk: Ask }) {
+function BroadcastControls({ serverId, onAsk }: { serverId: string; onAsk: Ask }) {
   const [message, setMessage] = useState("");
 
   return (
@@ -406,7 +425,7 @@ function BroadcastControls({ onAsk }: { onAsk: Ask }) {
             onAsk("Broadcast this?", `Everyone online will see: ${message}`, () => {
               const text = message;
               setMessage("");
-              return api.say(text);
+              return api.say(serverId, text);
             })
           }
         >

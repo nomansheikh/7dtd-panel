@@ -38,7 +38,8 @@ type commandsResponse struct {
 // what this server actually accepts, including commands added by mods, and
 // carries the server's own help text.
 func (s *Server) handleConsoleCommands(w http.ResponseWriter, r *http.Request) {
-	items, fetchedAt, err := s.commands.Get(r.Context())
+	srv := serverFrom(r.Context())
+	items, fetchedAt, err := srv.Commands.Get(r.Context())
 	if err != nil {
 		s.writeGameError(w, err, "could not load the command list")
 		return
@@ -106,7 +107,7 @@ func (s *Server) handleConsoleExecute(w http.ResponseWriter, r *http.Request) {
 	s.log.Info("console command",
 		"username", user.Username, "command", req.Command, "tier", string(tier))
 
-	result, execErr := s.game.Execute(r.Context(), req.Command)
+	result, execErr := serverFrom(r.Context()).Client.Execute(r.Context(), req.Command)
 
 	run := store.CommandRun{
 		UserID:    user.ID,

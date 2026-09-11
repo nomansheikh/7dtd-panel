@@ -18,19 +18,38 @@ import (
 // Config is the fully validated configuration. A zero Config is never valid;
 // always obtain one from Load.
 type Config struct {
-	Game  Game
-	Panel Panel
+	// Servers is never empty after a successful Load.
+	Servers []Game
+	Panel   Panel
 }
 
-// Game describes how to reach the 7 Days to Die server. The panel and the
-// game server are assumed to be on different hosts and to share no
-// filesystem.
+// Game describes how to reach one 7 Days to Die server. The panel and the game
+// servers are assumed to be on different hosts and to share no filesystem.
 type Game struct {
+	// ID is the stable identifier used in URLs. Lower case, alphanumeric and
+	// dashes.
+	ID string
+	// Name is what an operator sees. Defaults to the ID.
+	Name        string
 	Host        string
 	Port        int
 	Scheme      string
 	TokenName   string
 	TokenSecret string
+}
+
+// Default returns the first configured server, which is the one the UI opens
+// on. Load guarantees at least one.
+func (c Config) Default() Game { return c.Servers[0] }
+
+// Server finds a server by ID.
+func (c Config) Server(id string) (Game, bool) {
+	for _, g := range c.Servers {
+		if g.ID == id {
+			return g, true
+		}
+	}
+	return Game{}, false
 }
 
 // BaseURL is the root of the game server's web API, without a trailing slash.
@@ -65,11 +84,7 @@ func Load(getenv func(string) string) (Config, error) {
 
 	var c Config
 
-	c.Game.Host = p.required("SDTD_HOST")
-	c.Game.Port = p.port("SDTD_API_PORT", 8080)
-	c.Game.Scheme = p.enum("SDTD_API_SCHEME", "http", "http", "https")
-	c.Game.TokenName = p.required("SDTD_API_TOKEN_NAME")
-	c.Game.TokenSecret = p.required("SDTD_API_TOKEN_SECRET")
+	c.Servers = p.servers()
 
 	c.Panel.Port = p.port("PANEL_PORT", 8080)
 	c.Panel.AdminUsername = p.str("PANEL_ADMIN_USERNAME", "admin")
@@ -209,9 +224,14 @@ func (p *parser) enum(key, def string, allowed ...string) string {
 
 // Redacted returns the config with secrets removed, for logging at startup.
 func (c Config) Redacted() map[string]any {
+	servers := make([]string, 0, len(c.Servers))
+	for _, g := range c.Servers {
+		// The token name is not secret; the secret is never included.
+		servers = append(servers, g.ID+"="+g.BaseURL()+" (token "+g.TokenName+")")
+	}
 	return map[string]any{
-		"game.baseURL":           c.Game.BaseURL(),
-		"game.tokenName":         c.Game.TokenName,
+		"game.servers":           strings.Join(servers, ", "),
+		"game.count":             len(c.Servers),
 		"panel.port":             c.Panel.Port,
 		"panel.adminUsername":    c.Panel.AdminUsername,
 		"panel.dbPath":           c.Panel.DBPath,

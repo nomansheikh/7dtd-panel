@@ -47,7 +47,7 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	history, ch, cancel := s.events.Subscribe(backlog)
+	history, ch, cancel := serverFrom(r.Context()).Events.Subscribe(backlog)
 	defer cancel()
 
 	// A write deadline would sever an idle stream, so clear the one the server

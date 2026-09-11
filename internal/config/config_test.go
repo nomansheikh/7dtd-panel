@@ -33,8 +33,8 @@ func TestLoadAppliesDefaults(t *testing.T) {
 		got  any
 		want any
 	}{
-		{"game port", c.Game.Port, 8080},
-		{"game scheme", c.Game.Scheme, "http"},
+		{"game port", c.Default().Port, 8080},
+		{"game scheme", c.Default().Scheme, "http"},
 		{"panel port", c.Panel.Port, 8080},
 		{"admin username", c.Panel.AdminUsername, "admin"},
 		{"db path", c.Panel.DBPath, "/data/panel.db"},
@@ -83,7 +83,7 @@ func TestBaseURL(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Load: %v", err)
 			}
-			if got := c.Game.BaseURL(); got != tt.want {
+			if got := c.Default().BaseURL(); got != tt.want {
 				t.Errorf("BaseURL = %q, want %q", got, tt.want)
 			}
 		})
@@ -157,11 +157,11 @@ func TestValuesAreTrimmedAndSchemeIsCaseInsensitive(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if c.Game.Host != "10.0.0.9" {
-		t.Errorf("host = %q, want trimmed", c.Game.Host)
+	if c.Default().Host != "10.0.0.9" {
+		t.Errorf("host = %q, want trimmed", c.Default().Host)
 	}
-	if c.Game.Scheme != "https" {
-		t.Errorf("scheme = %q, want https", c.Game.Scheme)
+	if c.Default().Scheme != "https" {
+		t.Errorf("scheme = %q, want https", c.Default().Scheme)
 	}
 }
 

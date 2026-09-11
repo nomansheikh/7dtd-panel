@@ -15,57 +15,16 @@ import (
 
 	"github.com/nomansheikh/7dtd-panel/internal/auth"
 	"github.com/nomansheikh/7dtd-panel/internal/config"
-	"github.com/nomansheikh/7dtd-panel/internal/events"
-	"github.com/nomansheikh/7dtd-panel/internal/sdtd"
-	"github.com/nomansheikh/7dtd-panel/internal/state"
+	"github.com/nomansheikh/7dtd-panel/internal/servers"
 	"github.com/nomansheikh/7dtd-panel/internal/store"
 )
-
-// Snapshotter supplies the cached game server view.
-type Snapshotter interface {
-	Snapshot() state.Snapshot
-}
-
-// GameExecutor is the slice of the game client the API uses directly. The
-// poller owns everything read on a schedule; this is for operator-initiated
-// actions.
-type GameExecutor interface {
-	Execute(ctx context.Context, command string) (sdtd.CommandResult, error)
-}
-
-// CommandCatalogue supplies the server's command list, cached.
-type CommandCatalogue interface {
-	Get(ctx context.Context) ([]sdtd.Command, time.Time, error)
-}
-
-// ItemCatalogue and EntityCatalogue back the give and spawn pickers. Search
-// happens here rather than in the browser because the item list is ~2.9 MB.
-type ItemCatalogue interface {
-	Search(ctx context.Context, query string, includeBlocks bool, limit int) ([]sdtd.Item, int, error)
-	Has(ctx context.Context, name string) (bool, error)
-}
-
-type EntityCatalogue interface {
-	Search(ctx context.Context, query string, spawnableOnly bool, limit int) ([]sdtd.EntityClass, int, error)
-	Lookup(ctx context.Context, name string) (sdtd.EntityClass, bool, error)
-}
-
-// EventFeed is the hub browser clients subscribe to.
-type EventFeed interface {
-	Subscribe(backlog int) ([]events.Event, <-chan events.Event, func())
-}
 
 // Deps are the collaborators a Server needs.
 type Deps struct {
 	Config   config.Config
 	Store    *store.Store
 	Sessions *auth.Sessions
-	State    Snapshotter
-	Game     GameExecutor
-	Commands CommandCatalogue
-	Items    ItemCatalogue
-	Entities EntityCatalogue
-	Events   EventFeed
+	Servers  *servers.Registry
 	Logger   *slog.Logger
 	Version  string
 	Now      func() time.Time
@@ -76,12 +35,7 @@ type Server struct {
 	cfg      config.Config
 	store    *store.Store
 	sessions *auth.Sessions
-	state    Snapshotter
-	game     GameExecutor
-	commands CommandCatalogue
-	items    ItemCatalogue
-	entities EntityCatalogue
-	events   EventFeed
+	registry *servers.Registry
 	log      *slog.Logger
 	version  string
 	now      func() time.Time
@@ -103,12 +57,7 @@ func NewServer(d Deps) *Server {
 		cfg:      d.Config,
 		store:    d.Store,
 		sessions: d.Sessions,
-		state:    d.State,
-		game:     d.Game,
-		commands: d.Commands,
-		items:    d.Items,
-		entities: d.Entities,
-		events:   d.Events,
+		registry: d.Servers,
 		log:      log,
 		version:  d.Version,
 		now:      now,
@@ -129,24 +78,34 @@ func (s *Server) Routes() *http.ServeMux {
 	mux.HandleFunc("POST /api/auth/login", s.handleLogin)
 	mux.HandleFunc("POST /api/auth/logout", s.handleLogout)
 
-	// Authenticated.
 	mux.Handle("GET /api/auth/me", s.requireAuth(http.HandlerFunc(s.handleMe)))
-	mux.Handle("GET /api/dashboard", s.requireAuth(http.HandlerFunc(s.handleDashboard)))
-	mux.Handle("GET /api/events", s.requireAuth(http.HandlerFunc(s.handleEvents)))
-	mux.Handle("GET /api/console/commands", s.requireAuth(http.HandlerFunc(s.handleConsoleCommands)))
-	mux.Handle("POST /api/console/execute", s.requireAuth(http.HandlerFunc(s.handleConsoleExecute)))
-	mux.Handle("GET /api/console/history", s.requireAuth(http.HandlerFunc(s.handleConsoleHistory)))
 
-	// World controls. Every one of these becomes a console command, because
-	// the REST API has no write path for game state.
-	mux.Handle("POST /api/world/time", s.requireAuth(http.HandlerFunc(s.handleSetTime)))
-	mux.Handle("POST /api/world/weather", s.requireAuth(http.HandlerFunc(s.handleWeather)))
-	mux.Handle("POST /api/world/spawn", s.requireAuth(http.HandlerFunc(s.handleSpawn)))
-	mux.Handle("POST /api/world/horde", s.requireAuth(http.HandlerFunc(s.handleWanderingHorde)))
-	mux.Handle("POST /api/world/say", s.requireAuth(http.HandlerFunc(s.handleSay)))
+	// The list of servers is not server-scoped: it is how the UI finds out
+	// which servers exist in the first place.
+	mux.Handle("GET /api/servers", s.requireAuth(http.HandlerFunc(s.handleServers)))
 
-	mux.Handle("GET /api/items", s.requireAuth(http.HandlerFunc(s.handleItems)))
-	mux.Handle("GET /api/entities", s.requireAuth(http.HandlerFunc(s.handleEntities)))
+	// Everything below acts on one game server, named in the path. Mixing two
+	// servers' data would show an operator one world while they believed they
+	// were looking at another, so the server is resolved once, centrally.
+	scoped := func(pattern string, h http.HandlerFunc) {
+		mux.Handle(pattern, s.requireAuth(s.withServer(h)))
+	}
+
+	scoped("GET /api/servers/{server}/dashboard", s.handleDashboard)
+	scoped("GET /api/servers/{server}/events", s.handleEvents)
+
+	scoped("GET /api/servers/{server}/console/commands", s.handleConsoleCommands)
+	scoped("POST /api/servers/{server}/console/execute", s.handleConsoleExecute)
+	scoped("GET /api/servers/{server}/console/history", s.handleConsoleHistory)
+
+	scoped("POST /api/servers/{server}/world/time", s.handleSetTime)
+	scoped("POST /api/servers/{server}/world/weather", s.handleWeather)
+	scoped("POST /api/servers/{server}/world/spawn", s.handleSpawn)
+	scoped("POST /api/servers/{server}/world/horde", s.handleWanderingHorde)
+	scoped("POST /api/servers/{server}/world/say", s.handleSay)
+
+	scoped("GET /api/servers/{server}/items", s.handleItems)
+	scoped("GET /api/servers/{server}/entities", s.handleEntities)
 
 	return mux
 }
