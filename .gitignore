@@ -1,9 +1,13 @@
 # Build output
 /dist/
-/web/dist/
 /7dtd-panel
 /specbundle
 *.exe
+
+# Frontend build output is embedded at build time, never committed. The
+# .gitkeep keeps the go:embed pattern satisfied on a clean checkout.
+/internal/web/dist/*
+!/internal/web/dist/.gitkeep
 
 # Dependencies
 /node_modules/

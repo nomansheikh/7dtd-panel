@@ -1,7 +1,7 @@
 # Paths in api/codegen.yaml are relative to the repository root, so every
 # target here must run from the root.
 .DEFAULT_GOAL := help
-.PHONY: help generate bundle test vet fmt check build clean
+.PHONY: help generate bundle refresh-spec test vet fmt check build run clean frontend
 
 SPEC_SRC := api/snapshot
 BUNDLED  := api/openapi.bundled.yaml
@@ -34,5 +34,14 @@ check: vet test ## Everything CI gates on for the backend.
 build: ## Build the panel binary.
 	CGO_ENABLED=0 go build -trimpath -o 7dtd-panel ./cmd/7dtd-panel
 
+run: ## Run the panel from source, reading configuration from .env.
+	@test -f .env || { echo "no .env; copy .env.example and fill it in"; exit 1; }
+	set -a && . ./.env && set +a && go run ./cmd/7dtd-panel
+
+integration: ## Run tests that need a live game server. Requires SDTD_HOST.
+	@test -n "$(SDTD_HOST)" || { echo "SDTD_HOST is required"; exit 1; }
+	go test ./internal/sdtd -run Integration -v -count=1
+
 clean: ## Remove build output.
 	rm -f 7dtd-panel specbundle
+	rm -rf internal/web/dist/assets internal/web/dist/index.html
