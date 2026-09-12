@@ -82,9 +82,16 @@ type BuffCatalogue interface {
 	Has(ctx context.Context, name string) (bool, error)
 }
 
-// EventFeed is the hub browser clients subscribe to.
+// EventFeed is the hub browser clients subscribe to, and the one place the
+// panel can speak into its own feed.
+//
+// PublishStatus is here rather than on a separate collaborator because the
+// things that need it — the poller announcing that a server went away, the chat
+// bot announcing that somebody was handed a kit — are both writing into the
+// same stream an operator is already watching.
 type EventFeed interface {
 	Subscribe(backlog int) ([]events.Event, <-chan events.Event, func())
+	PublishStatus(message string)
 }
 
 // Server is one game server and everything the panel keeps for it.

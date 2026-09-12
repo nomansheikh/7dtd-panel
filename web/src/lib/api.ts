@@ -278,6 +278,36 @@ export interface PanelEvent {
   raw?: string;
 }
 
+/** Who may run a chat command. The game's admin list decides who is an admin,
+    not the panel's own logins: the people typing in chat have game identities. */
+export type ChatAudience = "everyone" | "admins";
+
+/** One command the bot knows how to answer, joined to how it is configured. */
+export interface ChatCommand {
+  name: string;
+  /** How a player types it, e.g. "!kit <name>". */
+  usage: string;
+  summary: string;
+  /** True for the one command that changes game state rather than reporting it. */
+  acts: boolean;
+  enabled: boolean;
+  audience: ChatAudience;
+  cooldownSeconds: number;
+}
+
+/** One line of a kit: an item name, how many, and what quality. */
+export interface KitItem {
+  item: string;
+  count: number;
+  /** Below 1 means the item has no quality, or that the game should decide. */
+  quality: number;
+}
+
+export interface Kit {
+  name: string;
+  items: KitItem[];
+}
+
 /** ApiError carries the panel's real message so the UI never has to invent one. */
 export class ApiError extends Error {
   readonly status: number;
@@ -619,6 +649,33 @@ export const api = {
     request<SettingUpdate>(forServer(serverId, `/settings/${encodeURIComponent(name)}`), {
       method: "PUT",
       body: JSON.stringify({ value }),
+    }),
+
+  chatCommands: (serverId: string) =>
+    request<{ prefix: string; commands: ChatCommand[] }>(forServer(serverId, "/chat/commands")),
+
+  saveChatCommand: (
+    serverId: string,
+    name: string,
+    body: { enabled: boolean; audience: ChatAudience; cooldownSeconds: number },
+  ) =>
+    request<{ ok: boolean }>(forServer(serverId, `/chat/commands/${encodeURIComponent(name)}`), {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+
+  /** Kits are panel-wide: the items belong to the game, not to one world. */
+  kits: (serverId: string) => request<{ kits: Kit[] }>(forServer(serverId, "/chat/kits")),
+
+  saveKit: (serverId: string, name: string, items: KitItem[]) =>
+    request<Kit>(forServer(serverId, `/chat/kits/${encodeURIComponent(name)}`), {
+      method: "PUT",
+      body: JSON.stringify({ items }),
+    }),
+
+  deleteKit: (serverId: string, name: string) =>
+    request<{ ok: boolean }>(forServer(serverId, `/chat/kits/${encodeURIComponent(name)}`), {
+      method: "DELETE",
     }),
 
   /** The browser-facing event stream for one server. */

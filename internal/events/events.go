@@ -11,6 +11,7 @@ package events
 
 import (
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -51,6 +52,17 @@ type Event struct {
 
 	// Player is set for chat, join and leave events when it could be parsed.
 	Player string `json:"player,omitempty"`
+	// EntityID and PlatformID identify who spoke, for chat lines only.
+	//
+	// Both are on the log line already and were being dropped. They are what
+	// lets the panel answer somebody: sayplayer addresses an entity id, and the
+	// platform id is the durable identity the admin list and whitelist use.
+	//
+	// An entity id of -1 with the platform id "-non-player-" is the server
+	// itself, which is what its own broadcasts come back as. Anything reacting
+	// to chat has to skip those or it will answer itself.
+	EntityID   *int   `json:"entityId,omitempty"`
+	PlatformID string `json:"platformId,omitempty"`
 	// Channel is the chat channel, set only when it is not Global. Party chat
 	// reads very differently from something said to the whole server.
 	Channel string `json:"channel,omitempty"`
@@ -105,14 +117,16 @@ func (h *Hub) PublishLog(entry sdtd.LogEntry) {
 	}
 
 	h.Publish(Event{
-		Kind:     c.Kind,
-		At:       at,
-		LogID:    &id,
-		Severity: entry.Type,
-		Message:  c.Text,
-		Player:   c.Player,
-		Channel:  c.Channel,
-		Raw:      raw,
+		Kind:       c.Kind,
+		At:         at,
+		LogID:      &id,
+		Severity:   entry.Type,
+		Message:    c.Text,
+		Player:     c.Player,
+		Channel:    c.Channel,
+		EntityID:   c.EntityID,
+		PlatformID: c.PlatformID,
+		Raw:        raw,
 	})
 }
 
@@ -220,6 +234,9 @@ type classified struct {
 	Kind    Kind
 	Player  string
 	Channel string
+	// EntityID and PlatformID are set for chat lines, which carry both.
+	EntityID   *int
+	PlatformID string
 	// Text is the part worth reading. For a chat line that is what was
 	// actually said, not the forty characters of platform id wrapped around
 	// it; for anything unrecognised it is the line unchanged.
@@ -251,7 +268,12 @@ func classify(msg string) classified {
 		if speaker == "" {
 			speaker = "Server"
 		}
-		return classified{Kind: KindChat, Player: speaker, Channel: channel, Text: m[5]}
+		entityID, err := strconv.Atoi(m[2])
+		out := classified{Kind: KindChat, Player: speaker, Channel: channel, Text: m[5], PlatformID: m[1]}
+		if err == nil {
+			out.EntityID = &entityID
+		}
+		return out
 	}
 	if m := joinRe.FindStringSubmatch(trimmed); m != nil {
 		return classified{Kind: KindJoin, Player: m[1], Text: "joined the game"}

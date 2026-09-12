@@ -4,6 +4,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import {
   Gauge,
   LogOut,
+  MessageSquare,
   Monitor,
   Moon,
   Radio,
@@ -45,6 +46,7 @@ const NAV = [
   { to: "/", label: "Overview", icon: Gauge },
   { to: "/players", label: "Players", icon: Users },
   { to: "/world", label: "World", icon: Radio },
+  { to: "/chat", label: "Chat", icon: MessageSquare },
   { to: "/console", label: "Console", icon: Terminal },
   { to: "/events", label: "Events", icon: ScrollText },
   { to: "/settings", label: "Settings", icon: SlidersHorizontal },
