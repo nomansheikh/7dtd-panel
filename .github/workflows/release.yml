@@ -1,59 +1,78 @@
 name: Release
 
-# Tags only. A push to main should not overwrite the image people are running;
-# shipping is a deliberate act, and the tag is what makes it one.
+# Releases are driven by the commit messages, not by remembering to tag.
+#
+# release-please reads the conventional commits since the last release, works
+# out the next version, and keeps a pull request open that bumps the changelog.
+# Merging that PR is the act of releasing: it tags, it writes the GitHub
+# release, and the image is built from the same job.
+#
+# The image build lives here rather than in a workflow triggered by the tag,
+# because a tag pushed with GITHUB_TOKEN deliberately does not trigger other
+# workflows. Split across two files, nothing would ever have been published.
 on:
   push:
-    tags: ["v*"]
+    branches: [main]
 
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
   packages: write
 
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
-  image:
-    name: Image
+  release:
+    name: Release
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
 
-      # arm64 matters here: a good number of these servers run on a Pi or an
-      # ARM VPS, and emulating the build is far cheaper than asking them to
-      # compile it themselves.
+      # Everything below runs only on the push that merged a release PR.
+      - uses: actions/checkout@v5
+        if: ${{ steps.release.outputs.release_created }}
+
+      # arm64 matters here: plenty of these servers run on a Pi or an ARM VPS,
+      # and emulating the build is far cheaper than asking them to compile it.
       - uses: docker/setup-qemu-action@v3
+        if: ${{ steps.release.outputs.release_created }}
       - uses: docker/setup-buildx-action@v3
+        if: ${{ steps.release.outputs.release_created }}
 
       - uses: docker/login-action@v3
+        if: ${{ steps.release.outputs.release_created }}
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - id: meta
+        if: ${{ steps.release.outputs.release_created }}
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository }}
-          # latest=auto moves :latest to the highest release tag and leaves it
-          # alone for a prerelease, which is what makes v0.1.0-alpha.1 safe to
-          # publish: it goes to the registry without becoming what everybody
-          # running the compose file from the README pulls tomorrow.
-          #
-          # The previous `enable={{is_default_branch}}` never fired at all. This
-          # workflow only runs on a tag, and a tag ref is not the default
-          # branch, so :latest would never have been published — while the
-          # quick start in the README pulls exactly that.
+          # latest=auto moves :latest to the highest release and leaves it alone
+          # for a prerelease, so a release candidate can be published without
+          # becoming what everybody following the README pulls.
           flavor: latest=auto
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{version}},value=${{ steps.release.outputs.tag_name }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ steps.release.outputs.tag_name }}
 
       - uses: docker/build-push-action@v6
+        if: ${{ steps.release.outputs.release_created }}
         with:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: VERSION=${{ github.ref_name }}
+          build-args: VERSION=${{ steps.release.outputs.tag_name }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

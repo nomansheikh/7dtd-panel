@@ -137,9 +137,27 @@ not been exercised anywhere else, and are the most likely to bite:
   as uid 65532, and `docker compose up` with the named volume above just
   works. If you swap it for a host path, `chown 65532:65532` that directory
   first or SQLite cannot create its database.
+- **Back up `panel.db` before upgrading.** Migrations are forward-only by
+  design, so an older image cannot make sense of a newer database. It is one
+  file; see [releasing](docs/releasing.md#upgrading-and-why-downgrading-does-not-work).
 - **The map page does not exist yet.** `enablerendering` can only turn map
   rendering *off*, so it needs a `serverconfig.xml` change and a restart to
   enable, which the panel cannot do for you.
+
+## Versions
+
+Pre-1.0, so `0.MINOR.PATCH`, and the number is worked out from the commit
+messages rather than chosen. Three tags are published: an exact one that
+never moves, a `0.MINOR` that picks up fixes, and `latest`.
+
+For a server you care about, pin the minor:
+
+```yaml
+image: ghcr.io/nomansheikh/7dtd-panel:0.1
+```
+
+How it all works, and what to do when a release goes wrong, is in
+[docs/releasing.md](docs/releasing.md).
 
 ## Contributing
 
