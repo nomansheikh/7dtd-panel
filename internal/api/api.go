@@ -150,6 +150,11 @@ func (s *Server) Routes() *http.ServeMux {
 	scoped("PUT /api/servers/{server}/chat/kits/{name}", s.handleSaveKit)
 	scoped("DELETE /api/servers/{server}/chat/kits/{name}", s.handleDeleteKit)
 
+	// Automation: what the panel does on its own.
+	scoped("GET /api/servers/{server}/tasks", s.handleTasks)
+	scoped("PUT /api/servers/{server}/tasks/{name}", s.handleSaveTask)
+	scoped("DELETE /api/servers/{server}/tasks/{name}", s.handleDeleteTask)
+
 	scoped("GET /api/servers/{server}/items", s.handleItems)
 	scoped("GET /api/servers/{server}/entities", s.handleEntities)
 	scoped("GET /api/servers/{server}/buffs", s.handleBuffs)

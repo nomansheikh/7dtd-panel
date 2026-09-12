@@ -35,3 +35,6 @@
 .DS_Store
 .idea/
 .vscode/
+
+# Scratch space for browser snapshots taken while verifying.
+.tmp-verify/

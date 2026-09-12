@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { NavLink, useLocation } from "react-router-dom";
 import {
+  Clock,
   Gauge,
   LogOut,
   MessageSquare,
@@ -47,6 +48,7 @@ const NAV = [
   { to: "/players", label: "Players", icon: Users },
   { to: "/world", label: "World", icon: Radio },
   { to: "/chat", label: "Chat", icon: MessageSquare },
+  { to: "/automation", label: "Automation", icon: Clock },
   { to: "/console", label: "Console", icon: Terminal },
   { to: "/events", label: "Events", icon: ScrollText },
   { to: "/settings", label: "Settings", icon: SlidersHorizontal },

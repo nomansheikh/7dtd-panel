@@ -8,6 +8,7 @@ import { PlayerPage } from "@/pages/player";
 import { PlayersPage } from "@/pages/players";
 import { WorldPage } from "@/pages/world";
 import { ChatPage } from "@/pages/chat";
+import { AutomationPage } from "@/pages/automation";
 import { SettingsPage } from "@/pages/settings";
 import { LoginPage } from "@/pages/login";
 import { useAuth } from "@/hooks/use-auth";
@@ -38,6 +39,7 @@ export default function App() {
             <Route path="/events" element={<EventsPage />} />
             <Route path="/world" element={<WorldPage />} />
             <Route path="/chat" element={<ChatPage />} />
+            <Route path="/automation" element={<AutomationPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             {/* Unknown paths go home rather than showing nothing. */}
             <Route path="*" element={<Navigate to="/" replace />} />

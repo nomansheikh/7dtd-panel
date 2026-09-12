@@ -315,6 +315,51 @@ export interface ChatCommand {
   tier?: ChatTier;
 }
 
+/** What sets a task off. */
+export type TaskTrigger =
+  | "daily"
+  | "every"
+  | "gametime"
+  | "bloodmoon"
+  | "bloodmoonover"
+  | "uptime"
+  | "empty"
+  | "join"
+  | "leave"
+  | "death";
+
+/** One thing the panel does on its own. */
+export interface Task {
+  name: string;
+  enabled: boolean;
+  description?: string;
+  trigger: TaskTrigger;
+  /** The interval for "every", and how long before for "bloodmoon". */
+  minutes?: number;
+  /** "HH:MM" for "daily", in the panel's own timezone. */
+  at?: string;
+  commands: ChatCommandLine[];
+  /** The strongest tier of any of its lines. */
+  tier: ChatTier;
+  lastRunAt?: string;
+}
+
+/** One record of a task going off. */
+export interface TaskRun {
+  name: string;
+  ranAt: string;
+  error?: string;
+}
+
+export interface TaskInput {
+  enabled: boolean;
+  description?: string;
+  trigger: TaskTrigger;
+  minutes?: number;
+  at?: string;
+  commands: string[];
+}
+
 /** A token an admin can put in a reply or a command line. */
 export interface ChatPlaceholder {
   token: string;
@@ -719,6 +764,22 @@ export const api = {
 
   deleteKit: (serverId: string, name: string) =>
     request<{ ok: boolean }>(forServer(serverId, `/chat/kits/${encodeURIComponent(name)}`), {
+      method: "DELETE",
+    }),
+
+  tasks: (serverId: string) =>
+    request<{ tasks: Task[]; runs: TaskRun[]; allowDestructive: boolean }>(
+      forServer(serverId, "/tasks"),
+    ),
+
+  saveTask: (serverId: string, name: string, body: TaskInput) =>
+    request<{ ok: boolean }>(forServer(serverId, `/tasks/${encodeURIComponent(name)}`), {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+
+  deleteTask: (serverId: string, name: string) =>
+    request<{ ok: boolean }>(forServer(serverId, `/tasks/${encodeURIComponent(name)}`), {
       method: "DELETE",
     }),
 
