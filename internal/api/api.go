@@ -81,8 +81,14 @@ func (s *Server) Routes() *http.ServeMux {
 	mux.Handle("GET /api/auth/me", s.requireAuth(http.HandlerFunc(s.handleMe)))
 
 	// The list of servers is not server-scoped: it is how the UI finds out
-	// which servers exist in the first place.
+	// which servers exist in the first place. Nor is adding one — these are how
+	// a server comes to exist at all, and the only endpoints that take a game
+	// server's token.
 	mux.Handle("GET /api/servers", s.requireAuth(http.HandlerFunc(s.handleServers)))
+	mux.Handle("POST /api/servers", s.requireAuth(http.HandlerFunc(s.handleCreateServer)))
+	mux.Handle("POST /api/servers/test", s.requireAuth(http.HandlerFunc(s.handleTestServer)))
+	mux.Handle("PUT /api/servers/{server}", s.requireAuth(http.HandlerFunc(s.handleUpdateServer)))
+	mux.Handle("DELETE /api/servers/{server}", s.requireAuth(http.HandlerFunc(s.handleDeleteServer)))
 
 	// Everything below acts on one game server, named in the path. Mixing two
 	// servers' data would show an operator one world while they believed they

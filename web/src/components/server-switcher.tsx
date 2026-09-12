@@ -1,9 +1,11 @@
-import { Check, ChevronsUpDown, HardDrive } from "lucide-react";
+import { Check, ChevronsUpDown, Plus } from "lucide-react";
+import { Link } from "react-router-dom";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
@@ -11,10 +13,14 @@ import { StatusDot } from "@/components/connection-status";
 import { useServers } from "@/hooks/use-servers";
 
 /**
- * Switches which game server the panel is acting on.
+ * Switches which game server the panel is acting on, and is the way to a
+ * second one.
  *
- * With one server configured this collapses to a plain label: a dropdown with a
- * single choice is just noise.
+ * It used to collapse to a plain label when only one server was configured, on
+ * the reasoning that a dropdown with a single choice is noise. That made it a
+ * dead end: having added the one server the first-run page asks for, there was
+ * nowhere in the interface that offered another. A menu with one server and a
+ * way to add the next is worth the click.
  */
 export function ServerSwitcher() {
   const { servers, current, currentId, select } = useServers();
@@ -24,20 +30,6 @@ export function ServerSwitcher() {
   }
 
   const label = current?.name ?? currentId;
-
-  // One server is a label, not a control. Rendering it as a disabled button
-  // left something in the tab order that takes focus and then does nothing.
-  if (servers.length === 1) {
-    return (
-      <div className="flex items-center gap-2 px-2 py-1.5" title={label}>
-        <HardDrive className="size-4 shrink-0 text-bone-faint" />
-        <div className="grid flex-1 leading-tight group-data-[collapsible=icon]:hidden">
-          <span className="stencil">Game server</span>
-          <span className="mt-1 truncate text-sm font-medium text-foreground">{label}</span>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <SidebarMenu>
@@ -73,6 +65,13 @@ export function ServerSwitcher() {
                 {server.id === currentId && <Check className="size-4" />}
               </DropdownMenuItem>
             ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link to="/servers" className="gap-2">
+                <Plus className="size-3.5 text-bone-faint" />
+                <span className="text-sm">Add or manage servers</span>
+              </Link>
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>

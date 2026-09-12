@@ -92,13 +92,41 @@ func run() error {
 	// Every game server gets its own client, poller, log stream, event hub and
 	// catalogues. None are constructed by contacting anything, so the panel
 	// starts and serves a clear disconnected state even with every game server
-	// down.
-	registry, err := servers.New(cfg, log, cfg.Panel.PollInterval, cfg.Panel.FailureThreshold)
-	if err != nil {
+	// down — including the state of having none at all, which is how a fresh
+	// install begins.
+	registry := servers.New(servers.Options{
+		Logger:           log,
+		PollInterval:     cfg.Panel.PollInterval,
+		FailureThreshold: cfg.Panel.FailureThreshold,
+		// Everything built on top of a server starts and stops with it, so
+		// adding one from the panel gets a chat bot and a scheduler without a
+		// restart.
+		Attach: func(ctx context.Context, srv *servers.Server) {
+			go chat.New(chat.Options{
+				Server:           srv.ID,
+				Feed:             srv.Events,
+				Client:           srv.Client,
+				Poller:           srv.Poller,
+				Store:            db,
+				Announce:         srv.Events,
+				Logger:           log.With("component", "chat", "server", srv.ID),
+				AllowDestructive: cfg.Panel.AllowDestructive,
+			}).Run(ctx)
+
+			go automation.New(automation.Options{
+				Server:           srv.ID,
+				Feed:             srv.Events,
+				Client:           srv.Client,
+				Poller:           srv.Poller,
+				Store:            db,
+				Logger:           log.With("component", "automation", "server", srv.ID),
+				AllowDestructive: cfg.Panel.AllowDestructive,
+			}).Run(ctx)
+		},
+	})
+
+	if err := loadServers(ctx, db, registry, cfg, log); err != nil {
 		return err
-	}
-	for _, srv := range registry.All() {
-		log.Info("game server configured", "id", srv.ID, "name", srv.Name, "url", srv.BaseURL)
 	}
 
 	sessions := auth.NewSessions(db, cfg.Panel.SessionTTL, cfg.Panel.TrustProxy)
@@ -111,38 +139,6 @@ func run() error {
 		Logger:   log.With("component", "api"),
 		Version:  version,
 	})
-
-	// One chat bot per server, sharing that server's event hub and client.
-	//
-	// Every command it answers is off until an operator turns it on, so this
-	// costs one idle goroutine per server on a panel nobody has configured.
-	for _, srv := range registry.All() {
-		bot := chat.New(chat.Options{
-			Server:   srv.ID,
-			Feed:     srv.Events,
-			Client:   srv.Client,
-			Poller:   srv.Poller,
-			Store:    db,
-			Announce: srv.Events,
-			Logger:   log.With("component", "chat", "server", srv.ID),
-			// The same switch the console page honours. A command an admin
-			// wrote runs under it too.
-			AllowDestructive: cfg.Panel.AllowDestructive,
-		})
-		go bot.Run(ctx)
-
-		// And the scheduler, which shares the same hub, client and switch.
-		runner := automation.New(automation.Options{
-			Server:           srv.ID,
-			Feed:             srv.Events,
-			Client:           srv.Client,
-			Poller:           srv.Poller,
-			Store:            db,
-			Logger:           log.With("component", "automation", "server", srv.ID),
-			AllowDestructive: cfg.Panel.AllowDestructive,
-		})
-		go runner.Run(ctx)
-	}
 
 	// The poller and the session sweeper run for the life of the process and
 	// stop when ctx is cancelled.
