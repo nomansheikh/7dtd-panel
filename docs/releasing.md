@@ -5,16 +5,22 @@ irreversible act; everything after it is automatic.
 
 ## The flow
 
+1. Write the changelog entry and merge it, like anything else.
+2. Cut the release on GitHub — *Releases → Draft a new release*, new tag on
+   `main`, notes from `CHANGELOG.md`. **Tick "set as a pre-release"** for
+   anything with a hyphen in its version.
+3. The tag fires the workflow, which builds `amd64` and `arm64` and pushes
+   the image.
+
+Tagging from the command line works the same way, if you would rather:
+
 ```bash
-# 1. write the changelog entry, merge it like anything else
-# 2. tag main
-git tag -a v0.1.0-beta.1 -m "v0.1.0-beta.1"
-git push origin v0.1.0-beta.1
+git tag -a v0.1.0 -m "v0.1.0" && git push origin v0.1.0
 ```
 
-That is the whole thing. The tag triggers a build of both architectures, a
-push to the registry, and a GitHub release whose notes come from the
-matching `CHANGELOG.md` section.
+The workflow does not create the release. It cannot: cutting one in the web
+UI creates the tag, which starts the workflow, so a workflow that also
+created a release would collide with the one that just triggered it.
 
 ## Choosing the number
 
