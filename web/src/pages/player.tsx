@@ -35,6 +35,25 @@ import { cn } from "@/lib/utils";
  * somebody is connected, and half of what is here — bans, admin levels, the
  * whitelist — is exactly what you reach for when they are not.
  */
+/*
+  Admin levels, named.
+
+  The game has a number from 0 to 1000 and no names for any of it: 0 is the
+  most access, 1000 is what everybody has without an entry, and what each level
+  can actually do is defined command by command in the server's own
+  serveradmin.xml. Three bare digits in a row told an operator nothing about
+  which one to press.
+
+  So these are the panel's words for the conventional three, kept beside the
+  number rather than instead of it — the number is what the server stores and
+  what an operator will see everywhere else.
+*/
+const ADMIN_LEVELS = [
+  { level: 0, label: "Owner", hint: "Full access: every command the server has." },
+  { level: 1, label: "Admin", hint: "Nearly everything. A rung below the owner." },
+  { level: 2, label: "Moderator", hint: "The day-to-day commands: kick, ban, teleport." },
+];
+
 export function PlayerPage() {
   const { platformId = "" } = useParams();
   const serverId = useServerId();
@@ -266,24 +285,32 @@ export function PlayerPage() {
         </Rail>
 
         <Rail title="Permissions">
-          <div className="flex flex-wrap items-center gap-1">
-            <span className="stencil mr-1">Grant</span>
-            {[0, 1, 2].map((level) => (
-              <Button
-                key={level}
-                variant="ghost"
-                size="sm"
-                className="readout h-7 px-2.5 text-xs"
-                onClick={() =>
-                  run(`${player.name} set to level ${level}`, () =>
-                    api.setAdmin(serverId, player.platformId, level),
-                  )
-                }
-              >
-                {level}
-              </Button>
-            ))}
-            <span className="text-xs text-bone-faint">0 is full access</span>
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-1">
+              <span className="stencil mr-1">Grant</span>
+              {ADMIN_LEVELS.map((rank) => (
+                <Button
+                  key={rank.level}
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 gap-1.5 px-2.5 text-xs"
+                  title={rank.hint}
+                  onClick={() =>
+                    run(`${player.name} is now ${rank.label.toLowerCase()}`, () =>
+                      api.setAdmin(serverId, player.platformId, rank.level),
+                    )
+                  }
+                >
+                  {rank.label}
+                  <span className="readout text-2xs text-bone-faint">{rank.level}</span>
+                </Button>
+              ))}
+            </div>
+            <p className="text-2xs text-bone-faint">
+              The number is the game's permission level, lower being more. Which commands each
+              level may actually run is set per command in the server's serveradmin.xml, so these
+              names are what the numbers are usually used for rather than fixed powers.
+            </p>
           </div>
           {isAdmin && (
             <Act
