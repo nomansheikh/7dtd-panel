@@ -18,6 +18,12 @@ export interface ServerSummary {
   maxPlayers: number;
   /** What a player types into the game's connect-to-IP box. */
   connect?: string;
+
+  /** How the panel reaches it, for the edit form. Never includes the secret. */
+  host?: string;
+  port?: number;
+  scheme?: "http" | "https";
+  tokenName?: string;
 }
 
 export interface Dashboard {

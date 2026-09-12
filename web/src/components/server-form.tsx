@@ -28,9 +28,9 @@ export function ServerForm({
 }) {
   const [id, setId] = useState(editing?.id ?? "");
   const [name, setName] = useState(editing?.name ?? "");
-  const [host, setHost] = useState("");
-  const [port, setPort] = useState("8080");
-  const [tokenName, setTokenName] = useState("");
+  const [host, setHost] = useState(editing?.host ?? "");
+  const [port, setPort] = useState(String(editing?.port ?? 8080));
+  const [tokenName, setTokenName] = useState(editing?.tokenName ?? "");
   const [tokenSecret, setTokenSecret] = useState("");
 
   const test = useTestServer();

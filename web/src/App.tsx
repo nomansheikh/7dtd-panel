@@ -11,6 +11,7 @@ import { ChatPage } from "@/pages/chat";
 import { AutomationPage } from "@/pages/automation";
 import { SettingsPage } from "@/pages/settings";
 import { SetupPage } from "@/pages/setup";
+import { ServersPage } from "@/pages/servers";
 import { LoginPage } from "@/pages/login";
 import { useAuth } from "@/hooks/use-auth";
 import { useServers } from "@/hooks/use-servers";
@@ -42,6 +43,7 @@ export default function App() {
             <Route path="/chat" element={<ChatPage />} />
             <Route path="/automation" element={<AutomationPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/servers" element={<ServersPage />} />
             {/* Unknown paths go home rather than showing nothing. */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
