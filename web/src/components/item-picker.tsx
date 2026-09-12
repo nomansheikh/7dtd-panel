@@ -5,6 +5,13 @@ import { ChevronDown, Minus, Plus, Search, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Sheet,
   SheetContent,
   SheetDescription,
@@ -59,15 +66,19 @@ export interface Pick {
  * as the game's, and an operator comparing it to a wiki would find nothing.
  * Six bare digits told them nothing either. Both together are honest and
  * readable, and the number is what ends up in the command.
+ *
+ * In a dropdown rather than a row of buttons: seven of these under every line
+ * of the basket was most of the sheet, and six of the seven were always the
+ * wrong answer.
  */
 const QUALITIES = [
-  { value: 0, label: "Any", hint: "let the game decide" },
-  { value: 1, label: "Crude", hint: "" },
-  { value: 2, label: "Basic", hint: "" },
-  { value: 3, label: "Decent", hint: "" },
-  { value: 4, label: "Good", hint: "" },
-  { value: 5, label: "Fine", hint: "" },
-  { value: 6, label: "Flawless", hint: "best in the game" },
+  { value: 0, label: "Any quality" },
+  { value: 1, label: "Crude · 1" },
+  { value: 2, label: "Basic · 2" },
+  { value: 3, label: "Decent · 3" },
+  { value: 4, label: "Good · 4" },
+  { value: 5, label: "Fine · 5" },
+  { value: 6, label: "Flawless · 6" },
 ];
 
 /*
@@ -393,8 +404,8 @@ export function ItemPicker({
           {basket.length > 0 && basketOpen && (
             <ul className="max-h-56 overflow-y-auto border-t border-border">
               {basket.map((pick) => (
-                <li key={pick.item.name} className="border-b border-border/60 p-3 md:px-4">
-                  <div className="flex items-center gap-2">
+                <li key={pick.item.name} className="border-b border-border/60 px-3 py-2 md:px-4">
+                  <div className="flex flex-wrap items-center gap-2">
                     <ItemIcon name={pick.item.name} className="size-6 shrink-0" />
                     <span className="min-w-0 flex-1 truncate text-xs text-bone">
                       {pick.item.localizedName}
@@ -434,6 +445,27 @@ export function ItemPicker({
                       </Button>
                     </div>
 
+                    <Select
+                      value={String(pick.quality)}
+                      onValueChange={(quality) =>
+                        update(pick.item.name, { quality: Number(quality) })
+                      }
+                    >
+                      <SelectTrigger
+                        className="h-6 w-auto gap-1.5 px-2 text-xs"
+                        aria-label={`Quality of ${pick.item.localizedName}`}
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {QUALITIES.map((q) => (
+                          <SelectItem key={q.value} value={String(q.value)} className="text-xs">
+                            {q.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
                     <Button
                       variant="ghost"
                       size="icon"
@@ -445,29 +477,6 @@ export function ItemPicker({
                     >
                       <Trash2 className="size-3" />
                     </Button>
-                  </div>
-
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <span className="stencil">Quality</span>
-                    {QUALITIES.map((q) => (
-                      <button
-                        key={q.value}
-                        type="button"
-                        onClick={() => update(pick.item.name, { quality: q.value })}
-                        className={cn(
-                          "border px-2 py-0.5 text-xs transition-colors",
-                          q.value === pick.quality
-                            ? "border-border bg-accent text-bone"
-                            : "border-transparent text-bone-faint hover:text-bone-dim",
-                        )}
-                      >
-                        {q.label}
-                        {q.value > 0 && (
-                          <span className="readout ml-1 text-2xs text-bone-faint">{q.value}</span>
-                        )}
-                        {q.hint && <span className="ml-1 text-2xs text-bone-faint">{q.hint}</span>}
-                      </button>
-                    ))}
                   </div>
                 </li>
               ))}
