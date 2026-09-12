@@ -282,17 +282,53 @@ export interface PanelEvent {
     not the panel's own logins: the people typing in chat have game identities. */
 export type ChatAudience = "everyone" | "admins";
 
-/** One command the bot knows how to answer, joined to how it is configured. */
+/** How much ceremony the panel demands of a console command. */
+export type ChatTier = "normal" | "mutating" | "destructive";
+
+/** One console line of a custom command, with what the panel knows about it. */
+export interface ChatCommandLine {
+  line: string;
+  tier: ChatTier;
+  /** Destructive, with PANEL_ALLOW_DESTRUCTIVE off. The operator's own switch. */
+  blocked: boolean;
+  /** Set when the line would be refused outright, so a typo shows at the keyboard. */
+  problem?: string;
+}
+
+/** One command the bot answers: either built in, or one an admin wrote. */
 export interface ChatCommand {
   name: string;
+  /** Only a custom command can be edited or deleted. */
+  kind: "builtin" | "custom";
   /** How a player types it, e.g. "!kit <name>". */
   usage: string;
   summary: string;
-  /** True for the one command that changes game state rather than reporting it. */
+  /** True when it changes game state rather than reporting it. */
   acts: boolean;
   enabled: boolean;
   audience: ChatAudience;
   cooldownSeconds: number;
+  /** What the player is told. Custom commands only. */
+  reply?: string;
+  commands?: ChatCommandLine[];
+  /** The strongest tier of any of its lines. */
+  tier?: ChatTier;
+}
+
+/** A token an admin can put in a reply or a command line. */
+export interface ChatPlaceholder {
+  token: string;
+  means: string;
+}
+
+/** What an admin submits when writing or editing a command. */
+export interface ChatCommandInput {
+  enabled: boolean;
+  audience: ChatAudience;
+  cooldownSeconds: number;
+  description?: string;
+  reply?: string;
+  commands?: string[];
 }
 
 /** One line of a kit: an item name, how many, and what quality. */
@@ -652,16 +688,24 @@ export const api = {
     }),
 
   chatCommands: (serverId: string) =>
-    request<{ prefix: string; commands: ChatCommand[] }>(forServer(serverId, "/chat/commands")),
+    request<{
+      prefix: string;
+      commands: ChatCommand[];
+      placeholders: ChatPlaceholder[];
+      /** False when the operator turned destructive commands off panel-wide. */
+      allowDestructive: boolean;
+    }>(forServer(serverId, "/chat/commands")),
 
-  saveChatCommand: (
-    serverId: string,
-    name: string,
-    body: { enabled: boolean; audience: ChatAudience; cooldownSeconds: number },
-  ) =>
+  saveChatCommand: (serverId: string, name: string, body: ChatCommandInput) =>
     request<{ ok: boolean }>(forServer(serverId, `/chat/commands/${encodeURIComponent(name)}`), {
       method: "PUT",
       body: JSON.stringify(body),
+    }),
+
+  /** Only a command an admin wrote; a built-in is switched off instead. */
+  deleteChatCommand: (serverId: string, name: string) =>
+    request<{ ok: boolean }>(forServer(serverId, `/chat/commands/${encodeURIComponent(name)}`), {
+      method: "DELETE",
     }),
 
   /** Kits are panel-wide: the items belong to the game, not to one world. */

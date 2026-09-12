@@ -28,6 +28,7 @@ package chat
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"regexp"
@@ -96,6 +97,10 @@ type Options struct {
 	Store    Store
 	Announce Announcer
 	Logger   *slog.Logger
+	// AllowDestructive mirrors PANEL_ALLOW_DESTRUCTIVE. A command an admin
+	// wrote is run under the same switch as one they type on the console page,
+	// so turning it off turns it off everywhere rather than in one place.
+	AllowDestructive bool
 	// Now defaults to time.Now and exists so cooldowns are testable.
 	Now func() time.Time
 }
@@ -252,20 +257,24 @@ exist, or that the operator has turned off, produces nothing: telling somebody
 for it. A refusal the player can act on — wait, or ask an admin — is spoken.
 */
 func (b *Bot) Handle(ctx context.Context, req Request) {
-	spec, ok := lookup(req.Name)
-	if !ok {
-		return
-	}
-
 	configured, err := b.config(ctx)
 	if err != nil {
 		b.log.Warn("could not read chat command config", "server", b.opts.Server, "error", err)
 		return
 	}
-	cfg, ok := configured[spec.Name]
+
+	// A built-in keeps its behaviour in code; anything else is only a command
+	// if an admin wrote a row for it. Either way it needs a row to be on, so an
+	// unconfigured name and an unknown one are the same silence.
+	cfg, ok := configured[req.Name]
 	if !ok || !cfg.Enabled {
 		return
 	}
+	spec, builtin := lookup(req.Name)
+	if !builtin && cfg.Kind != store.KindCustom {
+		return
+	}
+	name := req.Name
 
 	if cfg.Audience == store.AudienceAdmins {
 		admin, err := b.isAdmin(ctx, req.PlatformID)
@@ -274,40 +283,56 @@ func (b *Bot) Handle(ctx context.Context, req Request) {
 			return
 		}
 		if !admin {
-			b.reply(ctx, req, "Only admins can use "+Prefix+spec.Name+".")
+			b.reply(ctx, req, "Only admins can use "+Prefix+name+".")
 			return
 		}
 	}
 
 	cooldown := time.Duration(cfg.CooldownSeconds) * time.Second
 	allowed, left, err := b.opts.Store.TakeCooldown(ctx,
-		b.opts.Server, req.PlatformID, spec.Name, cooldown, b.now())
+		b.opts.Server, req.PlatformID, name, cooldown, b.now())
 	if err != nil {
 		b.log.Warn("could not take the cooldown", "server", b.opts.Server, "error", err)
 		return
 	}
 	if !allowed {
-		b.reply(ctx, req, fmt.Sprintf("Not yet — try %s%s again in %s.", Prefix, spec.Name, humanWait(left)))
+		b.reply(ctx, req, fmt.Sprintf("Not yet — try %s%s again in %s.", Prefix, name, humanWait(left)))
 		return
 	}
 
-	answer, err := spec.run(ctx, b, req)
+	var answer string
+	if builtin {
+		answer, err = spec.run(ctx, b, req)
+	} else {
+		answer, err = b.runCustom(ctx, cfg, req)
+	}
 	if err != nil {
 		// The cooldown was taken before the command ran, so that two copies of
 		// the same request cannot both pass the check. Since this one achieved
 		// nothing, give it back rather than charging an hour for a failure.
-		if clearErr := b.opts.Store.ClearCooldown(ctx, b.opts.Server, req.PlatformID, spec.Name); clearErr != nil {
+		if clearErr := b.opts.Store.ClearCooldown(ctx, b.opts.Server, req.PlatformID, name); clearErr != nil {
 			b.log.Warn("could not refund the cooldown", "server", b.opts.Server, "error", clearErr)
 		}
 		b.log.Warn("chat command failed",
-			"server", b.opts.Server, "command", spec.Name, "player", req.Player, "error", err)
+			"server", b.opts.Server, "command", name, "player", req.Player, "error", err)
+
+		// An argument the player could fix is worth saying out loud; anything
+		// else is the operator's problem, not theirs.
+		var unsafe *ErrUnsafeArgument
+		if errors.As(err, &unsafe) {
+			b.reply(ctx, req, "That only takes plain words — letters, digits, dot, dash "+
+				"and underscore.")
+			return
+		}
 		b.reply(ctx, req, "That did not work. An admin can see why in the panel.")
 		return
 	}
 
 	b.reply(ctx, req, answer)
-	if spec.Acts {
-		b.announce(fmt.Sprintf("chat: %s ran %s%s", nameOrUnknown(req.Player), Prefix, spec.Name))
+	// Anything that acted goes in the panel's own feed, so an operator watching
+	// the console sees what the bot did on somebody's say-so.
+	if (builtin && spec.Acts) || (!builtin && len(cfg.Commands) > 0) {
+		b.announce(fmt.Sprintf("chat: %s ran %s%s", nameOrUnknown(req.Player), Prefix, name))
 	}
 }
 

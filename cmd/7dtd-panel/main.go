@@ -124,6 +124,9 @@ func run() error {
 			Store:    db,
 			Announce: srv.Events,
 			Logger:   log.With("component", "chat", "server", srv.ID),
+			// The same switch the console page honours. A command an admin
+			// wrote runs under it too.
+			AllowDestructive: cfg.Panel.AllowDestructive,
 		})
 		go bot.Run(ctx)
 	}

@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -19,13 +20,38 @@ const (
 	AudienceAdmins Audience = "admins"
 )
 
-// ChatCommand is one command's configuration.
+// Kind separates the commands the panel ships with from the ones an admin
+// wrote.
+type Kind string
+
+const (
+	// KindBuiltin keeps its behaviour in internal/chat and uses only the
+	// enabled, audience and cooldown columns.
+	KindBuiltin Kind = "builtin"
+	// KindCustom carries its whole behaviour in the row.
+	KindCustom Kind = "custom"
+)
+
+// ChatCommand is one command's configuration, and for a custom command its
+// behaviour too.
 type ChatCommand struct {
-	Name            string    `json:"name"`
-	Enabled         bool      `json:"enabled"`
-	Audience        Audience  `json:"audience"`
-	CooldownSeconds int       `json:"cooldownSeconds"`
-	UpdatedAt       time.Time `json:"updatedAt"`
+	Name            string   `json:"name"`
+	Kind            Kind     `json:"kind"`
+	Enabled         bool     `json:"enabled"`
+	Audience        Audience `json:"audience"`
+	CooldownSeconds int      `json:"cooldownSeconds"`
+
+	// Description is what the command does, in the admin's words. Built-ins
+	// have their own and leave this empty.
+	Description string `json:"description,omitempty"`
+	// Reply is what the player is told. A command with a reply and no commands
+	// is one that only answers: !discord, !rules.
+	Reply string `json:"reply,omitempty"`
+	// Commands are console lines to run, in order. The game's console takes one
+	// at a time, so a list here is what lets one chat command be a sequence.
+	Commands []string `json:"commands,omitempty"`
+
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 // Kit is a named basket of items.
@@ -40,7 +66,8 @@ type Kit struct {
 // ChatCommands lists one server's configured commands, in name order.
 func (s *Store) ChatCommands(ctx context.Context, serverID string) ([]ChatCommand, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT name, enabled, audience, cooldown_seconds, updated_at
+		`SELECT name, kind, enabled, audience, cooldown_seconds,
+		        description, reply, commands, updated_at
 		   FROM chat_commands WHERE server_id = ? ORDER BY name`, serverID)
 	if err != nil {
 		return nil, fmt.Errorf("store: list chat commands: %w", err)
@@ -52,29 +79,80 @@ func (s *Store) ChatCommands(ctx context.Context, serverID string) ([]ChatComman
 		var c ChatCommand
 		var enabled int
 		var updated int64
-		if err := rows.Scan(&c.Name, &enabled, &c.Audience, &c.CooldownSeconds, &updated); err != nil {
+		var commands string
+		if err := rows.Scan(&c.Name, &c.Kind, &enabled, &c.Audience, &c.CooldownSeconds,
+			&c.Description, &c.Reply, &commands, &updated); err != nil {
 			return nil, fmt.Errorf("store: scan chat command: %w", err)
 		}
 		c.Enabled = enabled == 1
 		c.UpdatedAt = time.Unix(updated, 0).UTC()
+		// A row whose command list will not parse is still worth returning: an
+		// admin can see it and repair it, where a row that vanished from the
+		// list would just look like the panel had lost it.
+		if err := json.Unmarshal([]byte(commands), &c.Commands); err != nil {
+			c.Commands = nil
+		}
 		out = append(out, c)
 	}
 	return out, rows.Err()
 }
 
-// SaveChatCommand writes one command's configuration.
+// SaveChatCommand writes one command's configuration, and its behaviour when
+// it has one.
 func (s *Store) SaveChatCommand(ctx context.Context, serverID string, c ChatCommand, now time.Time) error {
-	_, err := s.db.ExecContext(ctx,
-		`INSERT INTO chat_commands (server_id, name, enabled, audience, cooldown_seconds, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?)
+	if c.Kind == "" {
+		c.Kind = KindBuiltin
+	}
+	commands := c.Commands
+	if commands == nil {
+		commands = []string{}
+	}
+	encoded, err := json.Marshal(commands)
+	if err != nil {
+		return fmt.Errorf("store: encode chat command lines: %w", err)
+	}
+
+	_, err = s.db.ExecContext(ctx,
+		`INSERT INTO chat_commands
+		   (server_id, name, kind, enabled, audience, cooldown_seconds,
+		    description, reply, commands, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		 ON CONFLICT (server_id, name) DO UPDATE SET
+		   kind = excluded.kind,
 		   enabled = excluded.enabled,
 		   audience = excluded.audience,
 		   cooldown_seconds = excluded.cooldown_seconds,
+		   description = excluded.description,
+		   reply = excluded.reply,
+		   commands = excluded.commands,
 		   updated_at = excluded.updated_at`,
-		serverID, c.Name, boolToInt(c.Enabled), string(c.Audience), c.CooldownSeconds, now.Unix())
+		serverID, c.Name, string(c.Kind), boolToInt(c.Enabled), string(c.Audience),
+		c.CooldownSeconds, c.Description, c.Reply, string(encoded), now.Unix())
 	if err != nil {
 		return fmt.Errorf("store: save chat command: %w", err)
+	}
+	return nil
+}
+
+// DeleteChatCommand removes a command's row.
+//
+// For a custom command this is the command ceasing to exist. For a built-in it
+// is only the configuration going away, which leaves it switched off, since a
+// built-in with no row is one nobody has turned on.
+func (s *Store) DeleteChatCommand(ctx context.Context, serverID, name string) error {
+	res, err := s.db.ExecContext(ctx,
+		`DELETE FROM chat_commands WHERE server_id = ? AND name = ?`, serverID, name)
+	if err != nil {
+		return fmt.Errorf("store: delete chat command: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	// The cooldowns it accumulated are meaningless once it is gone, and would
+	// otherwise be waiting for anybody who recreated the same name.
+	if _, err := s.db.ExecContext(ctx,
+		`DELETE FROM chat_cooldowns WHERE server_id = ? AND command = ?`, serverID, name); err != nil {
+		return fmt.Errorf("store: delete cooldowns for %s: %w", name, err)
 	}
 	return nil
 }

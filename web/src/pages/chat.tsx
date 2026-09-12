@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -22,7 +22,14 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { ItemPicker } from "@/components/item-picker";
-import { useChatCommands, useDeleteKit, useKits, useSaveChatCommand } from "@/hooks/use-chat";
+import { CommandEditor } from "@/components/command-editor";
+import {
+  useChatCommands,
+  useDeleteChatCommand,
+  useDeleteKit,
+  useKits,
+  useSaveChatCommand,
+} from "@/hooks/use-chat";
 import { useServerId } from "@/hooks/use-servers";
 import { type ChatAudience, type ChatCommand, type Kit } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -87,6 +94,8 @@ export function ChatPage() {
   const { data, isLoading, error } = useChatCommands();
   const kits = useKits();
   const [building, setBuilding] = useState(false);
+  // undefined means closed; null means writing a new one.
+  const [editing, setEditing] = useState<ChatCommand | null | undefined>(undefined);
 
   if (isLoading) {
     return (
@@ -118,14 +127,26 @@ export function ChatPage() {
             <span className="readout text-xs text-bone-faint">
               {on.length} of {data.commands.length} on
             </span>
-            <span className="ml-auto hidden text-xs text-bone-faint sm:block">
-              Off until you switch it on. None of them can kick, ban or wipe.
-            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="ml-auto h-6 gap-1 px-2 text-xs"
+              onClick={() => setEditing(null)}
+            >
+              <Plus className="size-3" />
+              Write one
+            </Button>
           </div>
 
           <ul>
             {data.commands.map((command) => (
-              <CommandRow key={command.name} command={command} kits={kits.data ?? []} />
+              <CommandRow
+                key={command.name}
+                command={command}
+                kits={kits.data ?? []}
+                allowDestructive={data.allowDestructive}
+                onEdit={() => setEditing(command)}
+              />
             ))}
           </ul>
 
@@ -157,6 +178,15 @@ export function ChatPage() {
       </section>
 
       {building && <ItemPicker purpose="kit" onClose={() => setBuilding(false)} />}
+
+      {editing !== undefined && (
+        <CommandEditor
+          editing={editing ?? undefined}
+          prefix={data.prefix}
+          placeholders={data.placeholders}
+          onClose={() => setEditing(undefined)}
+        />
+      )}
     </div>
   );
 }
@@ -164,33 +194,54 @@ export function ChatPage() {
 /**
  * One command: one line to work with, one line to read.
  *
- * The controls appear only once it is on, in the space the row already has. A
- * switched-off command showing an audience and a cooldown invites the reading
- * that the settings are doing something, and they are not.
+ * The controls appear only once it is on. A switched-off command showing an
+ * audience and a cooldown invites the reading that the settings are doing
+ * something, and they are not.
+ *
+ * A command an admin wrote also shows what it will run, under the summary. That
+ * is the whole of the panel's opinion about it: not a refusal, a sentence
+ * saying what the switch beside it turns on.
  */
-function CommandRow({ command, kits }: { command: ChatCommand; kits: Kit[] }) {
+function CommandRow({
+  command,
+  kits,
+  allowDestructive,
+  onEdit,
+}: {
+  command: ChatCommand;
+  kits: Kit[];
+  allowDestructive: boolean;
+  onEdit: () => void;
+}) {
   const save = useSaveChatCommand();
+  const remove = useDeleteChatCommand();
+  const [confirming, setConfirming] = useState(false);
 
   const update = (change: Partial<ChatCommand>) =>
     save.mutate(
       {
         name: command.name,
-        enabled: command.enabled,
-        audience: command.audience,
-        cooldownSeconds: command.cooldownSeconds,
-        ...change,
+        enabled: change.enabled ?? command.enabled,
+        audience: change.audience ?? command.audience,
+        cooldownSeconds: change.cooldownSeconds ?? command.cooldownSeconds,
+        // Carried through so configuring a command does not erase what it does.
+        description: command.summary,
+        reply: command.reply,
+        commands: command.commands?.map((line) => line.line),
       },
       { onError: (err) => toast.error("That did not save", { description: err.message }) },
     );
 
-  // The one command that hands out loot, open to everybody, with no kits to
+  // The one built-in that hands out loot, open to everybody, with no kits to
   // hand out: worth saying, because it will look broken from in game.
   const noKits = command.name === "kit" && command.enabled && kits.length === 0;
+  const custom = command.kind === "custom";
+  const blocked = command.commands?.some((line) => line.blocked) ?? false;
 
   return (
     <li
       className={cn(
-        "border-b border-border px-4 py-2.5 md:px-6",
+        "group border-b border-border px-4 py-2.5 md:px-6",
         command.enabled ? "bg-accent/20" : "text-bone-faint",
       )}
     >
@@ -199,10 +250,37 @@ function CommandRow({ command, kits }: { command: ChatCommand; kits: Kit[] }) {
           {command.usage}
         </code>
         {command.acts && command.enabled && command.audience === "everyone" && (
-          <span className="stencil text-ember">hands out loot</span>
+          <span className="stencil text-ember">
+            {custom ? "runs commands for anyone" : "hands out loot"}
+          </span>
+        )}
+        {command.tier === "destructive" && (
+          <span className="stencil text-crimson-lit">destructive</span>
         )}
 
         <div className="ml-auto flex items-center gap-2">
+          {custom && (
+            <span className="flex items-center gap-0.5 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-6 text-bone-faint"
+                aria-label={`Edit ${command.usage}`}
+                onClick={onEdit}
+              >
+                <Pencil className="size-3" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-6 text-bone-faint hover:text-crimson-lit"
+                aria-label={`Delete ${command.usage}`}
+                onClick={() => setConfirming(true)}
+              >
+                <Trash2 className="size-3" />
+              </Button>
+            </span>
+          )}
           {command.enabled && (
             <>
               <Picker
@@ -231,11 +309,66 @@ function CommandRow({ command, kits }: { command: ChatCommand; kits: Kit[] }) {
       </div>
 
       <p className="mt-0.5 max-w-prose text-xs text-bone-faint">
-        {command.summary}
+        {command.summary || (custom ? "No description." : "")}
         {noKits && (
           <span className="text-ember"> There are no kits yet, so it has none to give.</span>
         )}
       </p>
+
+      {/* What it will actually run, so the switch beside it is an informed one. */}
+      {custom && (command.commands?.length ?? 0) > 0 && (
+        <ul className="mt-1.5 space-y-0.5">
+          {command.commands?.map((line, i) => (
+            <li key={i} className="flex flex-wrap items-baseline gap-2">
+              <code className="readout text-2xs text-bone-dim">{line.line}</code>
+              {line.tier !== "normal" && (
+                <span
+                  className={cn(
+                    "stencil",
+                    line.tier === "destructive" ? "text-crimson-lit" : "text-ember",
+                  )}
+                >
+                  {line.tier}
+                </span>
+              )}
+              {line.problem && <span className="text-2xs text-destructive">{line.problem}</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {blocked && !allowDestructive && (
+        <p className="mt-1 text-2xs text-bone-faint">
+          A line here is destructive, and this panel was started with
+          <code className="readout"> PANEL_ALLOW_DESTRUCTIVE=false</code>. It will not run until
+          that is changed.
+        </p>
+      )}
+
+      <AlertDialog open={confirming} onOpenChange={setConfirming}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {command.usage}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              It stops being a command. Anybody who types it gets no answer at all.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep it</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                remove.mutate(command.name, {
+                  onSuccess: () => toast.success(`${command.usage} is gone`),
+                  onError: (err) => toast.error("Not deleted", { description: err.message }),
+                });
+                setConfirming(false);
+              }}
+            >
+              Delete it
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </li>
   );
 }
@@ -307,8 +440,12 @@ function Transcript({ prefix, enabled }: { prefix: string; enabled: ChatCommand[
           <>
             <div className="space-y-2">
               {enabled.map((command) => {
-                const example = EXAMPLES[command.name];
-                if (!example) return null;
+                // A built-in has an example written for it; a command an admin
+                // wrote is shown as they wrote it.
+                const example = EXAMPLES[command.name] ?? {
+                  asked: command.usage,
+                  answered: command.reply || "(it runs, and says nothing)",
+                };
                 return (
                   <div key={command.name} className="space-y-0.5 text-2xs">
                     <p className="readout">

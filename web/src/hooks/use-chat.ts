@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, type ChatAudience, type ChatCommand, type Kit, type KitItem } from "@/lib/api";
+import { api, type ChatCommandInput, type Kit, type KitItem } from "@/lib/api";
 import { useServerId } from "@/hooks/use-servers";
 
 /**
@@ -10,7 +10,7 @@ import { useServerId } from "@/hooks/use-servers";
  */
 export function useChatCommands() {
   const serverId = useServerId();
-  return useQuery<{ prefix: string; commands: ChatCommand[] }>({
+  return useQuery({
     queryKey: ["chat", "commands", serverId],
     queryFn: () => api.chatCommands(serverId),
     enabled: serverId !== "",
@@ -21,12 +21,19 @@ export function useChatCommands() {
 export function useSaveChatCommand() {
   const serverId = useServerId();
   const queryClient = useQueryClient();
-  return useMutation<
-    { ok: boolean },
-    Error,
-    { name: string; enabled: boolean; audience: ChatAudience; cooldownSeconds: number }
-  >({
+  return useMutation<{ ok: boolean }, Error, { name: string } & ChatCommandInput>({
     mutationFn: ({ name, ...body }) => api.saveChatCommand(serverId, name, body),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["chat", "commands", serverId] });
+    },
+  });
+}
+
+export function useDeleteChatCommand() {
+  const serverId = useServerId();
+  const queryClient = useQueryClient();
+  return useMutation<{ ok: boolean }, Error, string>({
+    mutationFn: (name) => api.deleteChatCommand(serverId, name),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["chat", "commands", serverId] });
     },
