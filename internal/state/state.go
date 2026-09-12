@@ -70,7 +70,13 @@ type Snapshot struct {
 	Description    string
 	Region         string
 	PasswordSet    bool
-	InfoAt         time.Time
+	// DaylightHours is how many of the 24 in-game hours are lit, and DayMinutes
+	// how many real minutes a whole game day takes. Both come free with the
+	// serverinfo poll and are what make a day-phase readout truthful rather
+	// than a guess at the defaults.
+	DaylightHours int
+	DayMinutes    int
+	InfoAt        time.Time
 
 	// Uptime is the game server's uptime as of UptimeSampledAt. It comes from
 	// the newest log line's uptime field, which is the only place the API
@@ -328,6 +334,8 @@ func (p *Poller) pollInfo(ctx context.Context) {
 	p.snap.ServerName = info.Str("GameHost")
 	p.snap.Description = info.Str("ServerDescription")
 	p.snap.Region = info.Str("Region")
+	p.snap.DaylightHours = int(info.Int("DayLightLength"))
+	p.snap.DayMinutes = int(info.Int("DayNightLength"))
 	if ip, port := info.Str("IP"), info.Int("Port"); ip != "" && port > 0 {
 		p.snap.ConnectAddress = net.JoinHostPort(ip, strconv.Itoa(int(port)))
 	}

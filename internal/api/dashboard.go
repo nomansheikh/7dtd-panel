@@ -61,6 +61,11 @@ type dashboardWorld struct {
 	Minute   int    `json:"minute"`
 	Hostiles int    `json:"hostiles"`
 	Animals  int    `json:"animals"`
+	// DaylightHours is how many of the 24 in-game hours are lit, and
+	// DayMinutes how long a whole game day takes in real minutes. Both are
+	// zero until the first serverinfo poll lands.
+	DaylightHours int `json:"daylightHours,omitempty"`
+	DayMinutes    int `json:"dayMinutes,omitempty"`
 }
 
 type dashboardUptime struct {
@@ -97,12 +102,14 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 			Max:    snap.MaxPlayers,
 		},
 		World: dashboardWorld{
-			Name:     snap.World,
-			Day:      snap.Stats.GameTime.Days,
-			Hour:     snap.Stats.GameTime.Hours,
-			Minute:   snap.Stats.GameTime.Minutes,
-			Hostiles: snap.Stats.Hostiles,
-			Animals:  snap.Stats.Animals,
+			Name:          snap.World,
+			Day:           snap.Stats.GameTime.Days,
+			Hour:          snap.Stats.GameTime.Hours,
+			Minute:        snap.Stats.GameTime.Minutes,
+			Hostiles:      snap.Stats.Hostiles,
+			Animals:       snap.Stats.Animals,
+			DaylightHours: snap.DaylightHours,
+			DayMinutes:    snap.DayMinutes,
 		},
 	}
 

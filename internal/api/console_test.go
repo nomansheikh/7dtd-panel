@@ -31,8 +31,15 @@ type fakeGame struct {
 	sandboxErr    error
 	// live is what the console reports, which is not always what
 	// /api/gameprefs reports.
-	live    map[string]string
-	liveErr error
+	live       map[string]string
+	liveErr    error
+	weather    sdtd.Weather
+	weatherErr error
+	health     sdtd.Health
+	healthErr  error
+	icon       []byte
+	iconErr    error
+	iconFor    string
 }
 
 func (f *fakeGame) Players(context.Context) ([]sdtd.Player, error) {
@@ -41,6 +48,22 @@ func (f *fakeGame) Players(context.Context) ([]sdtd.Player, error) {
 
 func (f *fakeGame) GamePrefs(context.Context) (sdtd.ValueSet, error) {
 	return f.prefs, f.prefsErr
+}
+
+func (f *fakeGame) CurrentWeather(context.Context) (sdtd.Weather, error) {
+	return f.weather, f.weatherErr
+}
+
+func (f *fakeGame) ServerHealth(context.Context) (sdtd.Health, error) {
+	return f.health, f.healthErr
+}
+
+func (f *fakeGame) ItemIcon(_ context.Context, name, _ string) ([]byte, error) {
+	if f.iconErr != nil {
+		return nil, f.iconErr
+	}
+	f.iconFor = name
+	return f.icon, nil
 }
 
 func (f *fakeGame) GamePrefsLive(context.Context) (map[string]string, error) {

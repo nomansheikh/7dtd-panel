@@ -22,15 +22,15 @@ import { api, type ActionResult, type BanUnit, type Player } from "@/lib/api";
 import { useServerId } from "@/hooks/use-servers";
 
 export type PendingAction = {
-  kind: "teleport" | "give" | "xp" | "buff" | "kill" | "kick" | "ban" | "unban";
+  kind: "teleport" | "xp" | "buff" | "unlock" | "kill" | "kick" | "ban" | "unban";
   player: Player;
 };
 
 const TITLES: Record<PendingAction["kind"], string> = {
   teleport: "Teleport",
-  give: "Give an item",
   xp: "Give XP",
   buff: "Buff or debuff",
+  unlock: "Force containers open",
   kill: "Kill this player",
   kick: "Kick this player",
   ban: "Ban this player",
@@ -54,7 +54,7 @@ export function PlayerActionDialog({
   pending: PendingAction | null;
   players: Player[];
   onClose: () => void;
-  onRun: (run: () => Promise<ActionResult>) => void;
+  onRun: (done: string, run: () => Promise<ActionResult>) => void;
 }) {
   const serverId = useServerId();
   const [form, setForm] = useState<Record<string, string>>({});
@@ -63,15 +63,13 @@ export function PlayerActionDialog({
   useEffect(() => {
     if (!pending) return;
     setForm(
-      pending.kind === "give"
-        ? { count: "1", quality: "0" }
-        : pending.kind === "xp"
-          ? { amount: "1000" }
-          : pending.kind === "ban"
-            ? { duration: "1", unit: "days" }
-            : pending.kind === "teleport"
-              ? { mode: "coords", x: "0", y: "-1", z: "0" }
-              : {},
+      pending.kind === "xp"
+        ? { amount: "1000" }
+        : pending.kind === "ban"
+          ? { duration: "1", unit: "days" }
+          : pending.kind === "teleport"
+            ? { mode: "coords", x: "0", y: "-1", z: "0" }
+            : {},
     );
   }, [pending]);
 
@@ -80,6 +78,39 @@ export function PlayerActionDialog({
   const set = (key: string) => (value: string) => setForm((f) => ({ ...f, [key]: value }));
 
   const destructive = kind === "kill" || kind === "kick" || kind === "ban";
+
+  /**
+   * What to tell the operator once it worked.
+   *
+   * Said here, next to the command being built, because this is the only place
+   * that knows both what was asked for and what was typed into the form. The
+   * game's own reply is written for a server console and says things like "Set
+   * time to 258000", which is true and useless.
+   */
+  function describe(): string {
+    switch (kind) {
+      case "teleport":
+        return form.mode === "player"
+          ? `${player.name} teleported to another player`
+          : `${player.name} teleported to ${form.x}, ${form.y}, ${form.z}`;
+      case "xp":
+        return `${form.amount || 0} XP given to ${player.name}`;
+      case "buff":
+        return form.remove === "yes"
+          ? `${form.buff} removed from ${player.name}`
+          : `${form.buff} given to ${player.name}`;
+      case "unlock":
+        return `Containers unlocked for ${player.name}`;
+      case "kill":
+        return `${player.name} killed`;
+      case "kick":
+        return `${player.name} kicked`;
+      case "ban":
+        return `${player.name} banned for ${form.duration || 1} ${form.unit ?? "days"}`;
+      case "unban":
+        return `${player.name} unbanned`;
+    }
+  }
 
   function build(): (() => Promise<ActionResult>) | null {
     switch (kind) {
@@ -95,21 +126,13 @@ export function PlayerActionDialog({
             y: Number(form.y),
             z: Number(form.z),
           });
-      case "give":
-        if (!form.item) return null;
-        return () =>
-          api.giveItem(
-            serverId,
-            player.entityId,
-            form.item,
-            Number(form.count || 1),
-            Number(form.quality || 0),
-          );
       case "xp":
         return () => api.giveXP(serverId, player.entityId, Number(form.amount || 0));
       case "buff":
         if (!form.buff) return null;
         return () => api.buffPlayer(serverId, player.entityId, form.buff, form.remove === "yes");
+      case "unlock":
+        return () => api.unlockInventories(serverId, player.entityId);
       case "kill":
         return () => api.killPlayer(serverId, player.entityId);
       case "kick":
@@ -150,8 +173,6 @@ export function PlayerActionDialog({
               players={players.filter((p) => p.online && p.entityId !== player.entityId)}
             />
           )}
-
-          {kind === "give" && <GiveFields form={form} set={set} />}
 
           {kind === "xp" && (
             <Field label="Amount" htmlFor="xp-amount">
@@ -202,7 +223,7 @@ export function PlayerActionDialog({
           <Button
             variant={destructive ? "destructive" : "default"}
             disabled={!run}
-            onClick={() => run && onRun(run)}
+            onClick={() => run && onRun(describe(), run)}
           >
             {TITLES[kind]}
           </Button>
@@ -289,83 +310,6 @@ function TeleportFields({
           Y of −1 drops them onto the ground rather than a precise height.
         </p>
       )}
-    </>
-  );
-}
-
-function GiveFields({
-  form,
-  set,
-}: {
-  form: Record<string, string>;
-  set: (key: string) => (value: string) => void;
-}) {
-  const serverId = useServerId();
-  const [query, setQuery] = useState("");
-
-  // Searched on the panel: the full catalogue is about 2.9 MB and thousands of
-  // entries, so it is never shipped to the browser.
-  const { data } = useQuery({
-    queryKey: ["items", serverId, query],
-    queryFn: () => api.searchItems(serverId, query),
-    enabled: query.trim().length > 1,
-  });
-
-  return (
-    <>
-      <Field label="Search items" htmlFor="give-search">
-        <Input
-          id="give-search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="axe, wood, ammo…"
-        />
-      </Field>
-
-      <Field label="Item" htmlFor="give-item">
-        <Select value={form.item ?? ""} onValueChange={set("item")}>
-          <SelectTrigger id="give-item">
-            <SelectValue
-              placeholder={
-                query.trim().length > 1
-                  ? `${data?.total ?? 0} matches`
-                  : "Type at least two letters"
-              }
-            />
-          </SelectTrigger>
-          <SelectContent>
-            {(data?.items ?? []).map((item) => (
-              <SelectItem key={item.name} value={item.name}>
-                {item.localizedName || item.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </Field>
-
-      <div className="flex gap-2">
-        <div className="flex-1 space-y-1">
-          <Label htmlFor="give-count">Count</Label>
-          <Input
-            id="give-count"
-            inputMode="numeric"
-            value={form.count ?? ""}
-            onChange={(e) => set("count")(e.target.value)}
-          />
-        </div>
-        <div className="flex-1 space-y-1">
-          <Label htmlFor="give-quality">Quality (0 for none)</Label>
-          <Input
-            id="give-quality"
-            inputMode="numeric"
-            value={form.quality ?? ""}
-            onChange={(e) => set("quality")(e.target.value)}
-          />
-        </div>
-      </div>
-      <p className="text-xs text-muted-foreground">
-        The item is dropped in front of the player rather than placed in their inventory.
-      </p>
     </>
   );
 }

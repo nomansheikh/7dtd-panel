@@ -48,6 +48,11 @@ ui-add: ## Add shadcn components, e.g. make ui-add ITEMS="table command".
 
 frontend-check: ## Format, lint and type-check the UI.
 	cd web && npx vp check
+	# vp check does not type-check. Run tsc separately, and never filter its
+	# output: a bad tsconfig makes it exit on a config error before it checks
+	# a single file, which is indistinguishable from success if you are
+	# grepping the noise away.
+	cd web && npm run typecheck
 
 build: frontend ## Build the panel binary with the UI embedded.
 	CGO_ENABLED=0 go build -trimpath -o 7dtd-panel ./cmd/7dtd-panel

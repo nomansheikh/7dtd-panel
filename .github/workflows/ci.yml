@@ -61,9 +61,14 @@ jobs:
       - name: Install
         run: npm ci
 
-      # Vite+ bundles format, lint and type-check behind one command.
+      # vp check covers format and lint. It does not type-check, despite what
+      # this comment used to claim, which is how a page that could not render
+      # reached a green build.
       - name: Check
         run: npx vp check
+
+      - name: Type-check
+        run: npm run typecheck
 
       - name: Build
         run: npx vp build

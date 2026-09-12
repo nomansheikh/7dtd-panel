@@ -1,6 +1,7 @@
 package events
 
 import (
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -215,16 +216,48 @@ func TestPublishLogFallsBackWhenTimestampIsUnparseable(t *testing.T) {
 	}
 }
 
+// Tidying the message must not lose what the server actually said: the raw
+// line is what an operator falls back to when the parse looks wrong.
+func TestPublishLogKeepsTheRawLineOnlyWhenItWasChanged(t *testing.T) {
+	h := NewHub()
+	_, ch, done := h.Subscribe(0)
+	defer done()
+
+	h.PublishLog(sdtd.LogEntry{
+		ID:   1,
+		Type: "Log",
+		Msg:  `Chat (from 'Steam_1', entity id '3', to 'Global'): 'Bob': hello`,
+	})
+	chat := <-ch
+	if chat.Message != "hello" {
+		t.Errorf("message = %q, want the text that was said", chat.Message)
+	}
+	if !strings.Contains(chat.Raw, "Steam_1") {
+		t.Errorf("raw = %q, want the server's original line", chat.Raw)
+	}
+
+	h.PublishLog(sdtd.LogEntry{ID: 2, Type: "Log", Msg: "StartGame done"})
+	plain := <-ch
+	if plain.Message != "StartGame done" {
+		t.Errorf("message = %q", plain.Message)
+	}
+	if plain.Raw != "" {
+		t.Errorf("raw = %q, want empty when nothing was rewritten", plain.Raw)
+	}
+}
+
 func TestClassify(t *testing.T) {
 	// The first two cases are verbatim lines captured from a live server with a
 	// player online, so the formats are confirmed rather than guessed. The
 	// important property remains that anything unrecognised stays an ordinary
 	// log entry.
 	tests := []struct {
-		name       string
-		msg        string
-		wantKind   Kind
-		wantPlayer string
+		name        string
+		msg         string
+		wantKind    Kind
+		wantPlayer  string
+		wantText    string
+		wantChannel string
 	}{
 		{
 			// Captured verbatim from a live server.
@@ -232,18 +265,34 @@ func TestClassify(t *testing.T) {
 			msg:        `Chat (from 'Steam_76561198803325430', entity id '173', to 'Global'): 'nullish': hello there`,
 			wantKind:   KindChat,
 			wantPlayer: "nullish",
+			// What was said, not the platform id wrapped around it.
+			wantText: "hello there",
 		},
 		{
 			name:       "chat to a party",
 			msg:        `Chat (from 'Steam_1', entity id '3', to 'Party'): 'Bob': on my way`,
 			wantKind:   KindChat,
 			wantPlayer: "Bob",
+			wantText:   "on my way",
+			// Party chat is worth distinguishing; Global is the default and
+			// carries no channel.
+			wantChannel: "Party",
 		},
 		{
-			name:       "server chat has entity id -1",
+			name:       "server chat with an explicit name",
 			msg:        `Chat (from 'Steam_-1', entity id '-1', to 'Global'): 'Server': restarting soon`,
 			wantKind:   KindChat,
 			wantPlayer: "Server",
+			wantText:   "restarting soon",
+		},
+		{
+			// Captured verbatim: this is what the say command produces, and it
+			// omits the speaker entirely rather than naming the server.
+			name:       "server broadcast names no speaker",
+			msg:        `Chat (from '-non-player-', entity id '-1', to 'Global'): restarting in 5`,
+			wantKind:   KindChat,
+			wantPlayer: "Server",
+			wantText:   "restarting in 5",
 		},
 		{
 			// Captured verbatim from a live server.
@@ -251,6 +300,7 @@ func TestClassify(t *testing.T) {
 			msg:        `GMSG: Player 'nullish' joined the game`,
 			wantKind:   KindJoin,
 			wantPlayer: "nullish",
+			wantText:   "joined the game",
 		},
 		{
 			// Captured verbatim from a live server.
@@ -258,6 +308,7 @@ func TestClassify(t *testing.T) {
 			msg:        `GMSG: Player 'nullish' died`,
 			wantKind:   KindDeath,
 			wantPlayer: "nullish",
+			wantText:   "died",
 		},
 		{
 			// Inferred from the same GMSG shape; not yet seen on a live server.
@@ -265,21 +316,26 @@ func TestClassify(t *testing.T) {
 			msg:        `GMSG: Player 'Noman' left the game`,
 			wantKind:   KindLeave,
 			wantPlayer: "Noman",
+			wantText:   "left the game",
 		},
 		{
 			name:     "ordinary log line",
 			msg:      "StartGame done",
 			wantKind: KindLog,
+			// Unrecognised lines come through untouched.
+			wantText: "StartGame done",
 		},
 		{
 			name:     "a command echo is not chat",
 			msg:      "Executing command 'gettime' by WebCommandResult_for_gettime_by_Unauth-PermLevel-0",
 			wantKind: KindLog,
+			wantText: "Executing command 'gettime' by WebCommandResult_for_gettime_by_Unauth-PermLevel-0",
 		},
 		{
 			name:     "something merely mentioning chat is not chat",
 			msg:      "INF Chat system initialised",
 			wantKind: KindLog,
+			wantText: "INF Chat system initialised",
 		},
 		{
 			name:     "empty",
@@ -290,12 +346,18 @@ func TestClassify(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			kind, player := classify(tt.msg)
-			if kind != tt.wantKind {
-				t.Errorf("kind = %q, want %q", kind, tt.wantKind)
+			got := classify(tt.msg)
+			if got.Kind != tt.wantKind {
+				t.Errorf("kind = %q, want %q", got.Kind, tt.wantKind)
 			}
-			if player != tt.wantPlayer {
-				t.Errorf("player = %q, want %q", player, tt.wantPlayer)
+			if got.Player != tt.wantPlayer {
+				t.Errorf("player = %q, want %q", got.Player, tt.wantPlayer)
+			}
+			if got.Text != tt.wantText {
+				t.Errorf("text = %q, want %q", got.Text, tt.wantText)
+			}
+			if got.Channel != tt.wantChannel {
+				t.Errorf("channel = %q, want %q", got.Channel, tt.wantChannel)
 			}
 		})
 	}

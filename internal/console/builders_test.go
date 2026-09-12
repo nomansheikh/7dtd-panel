@@ -44,8 +44,9 @@ func TestBuildersProduceExpectedCommands(t *testing.T) {
 			"weather Temp -20"},
 		{"spawn entity by name", func() (string, error) { return SpawnEntityAt("zombieArlene", 10, -1, 20, 3) },
 			"spawnentityat zombieArlene 10 -1 20 3"},
+		// Quoted, or the game broadcasts only "server".
 		{"say", func() (string, error) { return Say("server restarting in 5 minutes") },
-			"say server restarting in 5 minutes"},
+			`say "server restarting in 5 minutes"`},
 		{"set game pref", func() (string, error) { return SetGamePref("EnableMapRendering", "true") },
 			"setgamepref EnableMapRendering true"},
 	}
@@ -195,5 +196,126 @@ func TestHordeBuildersAreNotBloodMoon(t *testing.T) {
 	}
 	if got != "spawnscouts 171" {
 		t.Errorf("got %q", got)
+	}
+}
+
+func TestKillAllScopes(t *testing.T) {
+	for _, tc := range []struct {
+		scope KillScope
+		want  string
+	}{
+		{KillHostiles, "killall"},
+		{KillAlive, "killall alive"},
+		{KillEverything, "killall all"},
+	} {
+		got, err := KillAll(tc.scope)
+		if err != nil {
+			t.Fatalf("KillAll(%q) returned %v", tc.scope, err)
+		}
+		if got != tc.want {
+			t.Errorf("KillAll(%q) = %q, want %q", tc.scope, got, tc.want)
+		}
+	}
+
+	if _, err := KillAll("everything"); err == nil {
+		t.Error("a scope the game does not accept was allowed through")
+	}
+}
+
+// A private message goes the same way a broadcast does: unquoted, the game
+// takes only the first word.
+func TestSayPlayerQuotesTheMessage(t *testing.T) {
+	got, err := SayPlayer(171, "the horde is coming")
+	if err != nil {
+		t.Fatalf("SayPlayer returned %v", err)
+	}
+	if got != `sayplayer 171 "the horde is coming"` {
+		t.Errorf("SayPlayer = %q", got)
+	}
+
+	if _, err := SayPlayer(171, ""); err == nil {
+		t.Error("an empty message was allowed through")
+	}
+	if _, err := SayPlayer(171, `say "hi`); err == nil {
+		t.Error("a message carrying its own quote was allowed through")
+	}
+	if _, err := SayPlayer(-1, "hello"); err == nil {
+		t.Error("a negative entity id was allowed through")
+	}
+}
+
+// Both of these can discard world data or disconnect everyone, so they have to
+// stay on the destructive tier that the confirmation flow keys off.
+func TestWorldMaintenanceTiers(t *testing.T) {
+	for command, want := range map[string]Tier{
+		ResetChunks(): TierDestructive,
+		"killall all": TierDestructive,
+		SaveWorld():   TierMutating,
+	} {
+		if got := ClassifyTier(command); got != want {
+			t.Errorf("ClassifyTier(%q) = %q, want %q", command, got, want)
+		}
+	}
+}
+
+// Every one of these puts a platform user id straight into a command, so the
+// form check is the only thing standing between a crafted id and a second
+// command running.
+func TestAccessCommandsRejectMalformedIDs(t *testing.T) {
+	bad := "Steam_1 say hello"
+	for name, build := range map[string]func(string) (string, error){
+		"removelandprotection": RemoveLandClaims,
+		"admin remove":         RemoveAdmin,
+		"whitelist add":        AddToWhitelist,
+		"whitelist remove":     RemoveFromWhitelist,
+	} {
+		if _, err := build(bad); err == nil {
+			t.Errorf("%s accepted %q", name, bad)
+		}
+		if _, err := build("Steam_76561198021925107"); err != nil {
+			t.Errorf("%s rejected a well-formed id: %v", name, err)
+		}
+	}
+}
+
+func TestSetAdminBoundsTheLevel(t *testing.T) {
+	got, err := SetAdmin("Steam_76561198021925107", 0)
+	if err != nil {
+		t.Fatalf("SetAdmin returned %v", err)
+	}
+	if got != "admin add Steam_76561198021925107 0" {
+		t.Errorf("SetAdmin = %q", got)
+	}
+	for _, level := range []int{-1, 1001} {
+		if _, err := SetAdmin("Steam_76561198021925107", level); err == nil {
+			t.Errorf("level %d was allowed through", level)
+		}
+	}
+}
+
+func TestKickAllQuotesTheReason(t *testing.T) {
+	bare, err := KickAll("")
+	if err != nil || bare != "kickall" {
+		t.Fatalf("KickAll(\"\") = %q, %v", bare, err)
+	}
+	withReason, err := KickAll("restarting in five")
+	if err != nil {
+		t.Fatalf("KickAll returned %v", err)
+	}
+	if withReason != `kickall "restarting in five"` {
+		t.Errorf("KickAll = %q", withReason)
+	}
+}
+
+func TestSetMaxPlayersBounds(t *testing.T) {
+	if _, err := SetMaxPlayers(0); err == nil {
+		t.Error("a cap of zero was allowed through")
+	}
+	if _, err := SetMaxPlayers(129); err == nil {
+		t.Error("an absurd cap was allowed through")
+	}
+	got, err := SetMaxPlayers(16)
+	if err != nil || got != "overridemaxplayercount 16" {
+		t.Errorf("SetMaxPlayers(16) = %q, %v", got, err)
 	}
 }

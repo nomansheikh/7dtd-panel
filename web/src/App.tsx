@@ -4,6 +4,7 @@ import { AppShell } from "@/components/app-shell";
 import { DashboardPage } from "@/pages/dashboard";
 import { ConsolePage } from "@/pages/console";
 import { EventsPage } from "@/pages/events";
+import { PlayerPage } from "@/pages/player";
 import { PlayersPage } from "@/pages/players";
 import { WorldPage } from "@/pages/world";
 import { SettingsPage } from "@/pages/settings";
@@ -31,6 +32,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<DashboardPage />} />
             <Route path="/players" element={<PlayersPage />} />
+            <Route path="/players/:platformId" element={<PlayerPage />} />
             <Route path="/console" element={<ConsolePage />} />
             <Route path="/events" element={<EventsPage />} />
             <Route path="/world" element={<WorldPage />} />

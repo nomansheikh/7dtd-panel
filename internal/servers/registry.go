@@ -41,6 +41,17 @@ type Executor interface {
 	// SandboxSettings supplies the descriptions and allowed values the
 	// settings page needs to render pickers instead of text fields.
 	SandboxSettings(ctx context.Context) (sdtd.SandboxSettings, error)
+	// CurrentWeather reads what the weather is doing, which has no REST
+	// endpoint and so comes back through the console.
+	CurrentWeather(ctx context.Context) (sdtd.Weather, error)
+
+	// ServerHealth reads load and version figures, which likewise have no REST
+	// endpoint of their own.
+	ServerHealth(ctx context.Context) (sdtd.Health, error)
+
+	// ItemIcon fetches one item's art, which the panel proxies so the browser
+	// never has to reach the game server itself.
+	ItemIcon(ctx context.Context, name, tint string) ([]byte, error)
 }
 
 // Snapshotter supplies the cached view of a server.

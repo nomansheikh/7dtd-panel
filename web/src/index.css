@@ -28,11 +28,21 @@
  * red, and you can tell how much time is left from across the room without
  * reading a number.
  *
- * There is no light mode. This is a thing you open at night next to a running
- * game.
+ * Written dark first, because this is a thing you open at night next to a
+ * running game. The light set below is a second reading of the same palette
+ * rather than a different one: the same warm greys turned over, the same
+ * crimson, so a daylit panel still looks like this panel.
+ *
+ * The values live on `:root, .dark` rather than on `:root` alone so that a
+ * subtree can opt back into the dark set by carrying the class. The sky on the
+ * weather tab does exactly that — a sky at night is dark whatever the chrome
+ * around it is doing.
  */
-:root {
-  --radius: 0.25rem;
+:root,
+.dark {
+  /* Square. This is equipment, not a consumer app, and rounded boxes stacked
+     on rounded boxes is what made the first pass read as a card dump. */
+  --radius: 0;
 
   /* How far through the blood moon cycle, 0 to 1. Set by the app. */
   --moon: 0;
@@ -40,6 +50,11 @@
   --moon-heat: 0;
   /* 1 only while a blood moon is actually happening. */
   --moon-night: 0;
+
+  /* The sidebar sits a step off the page rather than level with it. Named
+     because it is not a step on the ash ramp, and a literal here is what kept
+     the rail dark when the rest of the panel went light. */
+  --sidebar-base: oklch(0.163 0.011 32);
 
   /* Ash. Warm near-black rather than the blue-black every dark dashboard
      defaults to, so the crimson has something to sit against. */
@@ -53,7 +68,10 @@
   /* Bone. */
   --bone: oklch(0.935 0.013 76);
   --bone-dim: oklch(0.715 0.012 64);
-  --bone-faint: oklch(0.56 0.011 52);
+  /* Lifted from 0.56, which measured 4.11:1 on the page background — under the
+     4.5:1 that normal text needs, and it is what every small uppercase label in
+     the panel is set in. */
+  --bone-faint: oklch(0.63 0.012 52);
 
   /* The blood moon itself. Every saturated pixel in the interface is one of
      these three, and they mean one thing. */
@@ -108,7 +126,7 @@
 
   --sidebar: color-mix(
     in oklab,
-    oklch(0.163 0.011 32),
+    var(--sidebar-base),
     var(--crimson-deep) calc(var(--moon-heat) * 16%)
   );
   --sidebar-foreground: var(--bone-dim);
@@ -131,7 +149,90 @@
   --status-unknown: var(--bone-faint);
 }
 
+/*
+ * Daylight.
+ *
+ * The ramps are inverted rather than replaced: ash still means "surface" and
+ * bone still means "the thing written on it", so every utility and every
+ * semantic token that reads them flips with no other change. Hue and chroma
+ * are held, which is what keeps the warmth — a straight greyscale inversion
+ * here reads as a different product.
+ */
+.light {
+  /* A shade off the page in the other direction: on paper the rail reads as
+     recessed when it is very slightly darker, not lighter. */
+  --sidebar-base: oklch(0.945 0.006 76);
+
+  /* Paper, warm, in the same hue family the ash ramp uses. */
+  --ash-950: oklch(0.985 0.004 76);
+  --ash-900: oklch(0.965 0.005 76);
+  --ash-860: oklch(0.945 0.006 76);
+  --ash-820: oklch(0.912 0.007 76);
+  --ash-780: oklch(0.875 0.008 66);
+  --ash-700: oklch(0.8 0.009 66);
+
+  /* Ink. Warm near-black, not the blue-black a default theme would give. */
+  --bone: oklch(0.255 0.014 44);
+  --bone-dim: oklch(0.435 0.013 48);
+  /* Darkened for the same reason the dark set was lightened: this is label
+     text, not decoration. */
+  --bone-faint: oklch(0.52 0.013 52);
+
+  /* Crimson has to darken to stay legible on paper; the lit variant is a
+     highlight on black and turns to candy floss on white. */
+  --crimson-deep: oklch(0.885 0.05 22);
+  --crimson: oklch(0.505 0.19 25);
+  --crimson-lit: oklch(0.455 0.2 26);
+
+  --ember: oklch(0.6 0.13 62);
+
+  --primary: oklch(0.28 0.015 44);
+  --primary-foreground: oklch(0.985 0.004 76);
+  --destructive-foreground: oklch(0.985 0.004 76);
+  --sidebar-primary-foreground: oklch(0.985 0.004 76);
+  --input: var(--ash-780);
+
+  --status-online: oklch(0.52 0.13 148);
+}
+
 @theme inline {
+  /*
+   * Type that scales with the window rather than sitting at fixed pixels.
+   *
+   * Every size below is a clamp between what it should be on a phone and what
+   * it should be once the shell hits its 1536px cap, interpolating on viewport
+   * width in between. Overriding Tailwind's own tokens means the hundred and
+   * ninety existing `text-xs` and `text-sm` classes become fluid without being
+   * touched, and nothing in a component has to name a pixel.
+   *
+   * Line heights are unitless on purpose: a fixed rem line height stops
+   * tracking its own font once that font starts moving.
+   */
+  --text-2xs: clamp(0.6875rem, 0.667rem + 0.086vw, 0.75rem);
+  --text-2xs--line-height: 1.35;
+  --text-xs: clamp(0.75rem, 0.72rem + 0.129vw, 0.84375rem);
+  --text-xs--line-height: 1.4;
+  --text-sm: clamp(0.84375rem, 0.803rem + 0.172vw, 0.96875rem);
+  --text-sm--line-height: 1.45;
+  --text-base: clamp(0.9375rem, 0.887rem + 0.215vw, 1.09375rem);
+  --text-base--line-height: 1.5;
+  --text-lg: clamp(1.0625rem, 1.002rem + 0.258vw, 1.25rem);
+  --text-lg--line-height: 1.4;
+  --text-xl: clamp(1.1875rem, 1.107rem + 0.345vw, 1.4375rem);
+  --text-xl--line-height: 1.3;
+  --text-2xl: clamp(1.375rem, 1.254rem + 0.517vw, 1.75rem);
+  --text-2xl--line-height: 1.25;
+  --text-3xl: clamp(1.625rem, 1.443rem + 0.775vw, 2.1875rem);
+  --text-3xl--line-height: 1.2;
+  --text-4xl: clamp(1.875rem, 1.592rem + 1.206vw, 2.75rem);
+  --text-4xl--line-height: 1.15;
+  --text-5xl: clamp(2.25rem, 1.846rem + 1.723vw, 3.5rem);
+  --text-5xl--line-height: 1.1;
+  --text-6xl: clamp(2.75rem, 2.185rem + 2.412vw, 4.5rem);
+  --text-6xl--line-height: 1.05;
+  --text-7xl: clamp(3.25rem, 2.039rem + 5.168vw, 7rem);
+  --text-7xl--line-height: 1;
+
   --radius-sm: calc(var(--radius) - 1px);
   --radius-md: var(--radius);
   --radius-lg: calc(var(--radius) + 2px);
@@ -189,6 +290,17 @@
   --animate-breathe: breathe 5s ease-in-out infinite;
   --animate-rise: rise 0.5s cubic-bezier(0.2, 0.7, 0.3, 1) both;
   --animate-bleed: bleed 7s ease-in-out infinite;
+}
+
+/* Falling weather. Two stacked copies of the same scatter are slid down by
+   exactly one frame height, so the loop has no seam to catch the eye. */
+@keyframes sky-fall {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(214px);
+  }
 }
 
 @keyframes breathe {
@@ -249,6 +361,12 @@
 }
 
 @layer components {
+  .sky-fall {
+    animation-name: sky-fall;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+  }
+
   /*
    * Readouts are instruments: tabular so digits do not jitter as they tick,
    * and tightened because large numerals set at default tracking look slack.
@@ -276,26 +394,53 @@
     font-family: var(--font-display);
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.14em;
-    font-size: 0.75rem;
-    line-height: 1;
+    /*
+      Eleven pixels of condensed capitals at 0.15em was the single hardest
+      thing here to read. Capitals have no ascenders or descenders to give a
+      word its shape, so the eye reads them letter by letter — and the wider
+      they are spaced the more that is true. A little bigger and a little
+      tighter, which is the opposite of the instinct.
+    */
+    letter-spacing: 0.11em;
+    font-size: var(--text-xs);
+    line-height: 1.15;
     color: var(--bone-faint);
   }
 
   /*
-   * Panels are cut rather than rounded, and lit from the top edge. The hairline
-   * inside the top border is what stops a flat fill from reading as a hole in
-   * the page.
+   * A region, not a card.
+   *
+   * The first pass boxed everything: bordered, rounded, shadowed, and then
+   * stacked eight of them down a page. Eight identical boxes carry no
+   * hierarchy, so nothing on the screen looked more important than anything
+   * else. Regions are separated by hairlines instead and bleed to the edges of
+   * the work area, which is how an instrument panel is laid out and how a
+   * newspaper page is laid out, and neither of them uses cards.
    */
-  .panel {
-    background: linear-gradient(to bottom, color-mix(in oklab, var(--card), white 3%), var(--card));
-    border: 1px solid var(--border);
-    box-shadow:
-      inset 0 1px 0 0 color-mix(in oklab, white 6%, transparent),
-      0 1px 2px 0 oklch(0 0 0 / 0.4);
+  .region {
+    background: linear-gradient(
+      to bottom,
+      color-mix(in oklab, var(--card), white 2%),
+      color-mix(in oklab, var(--card), transparent 35%)
+    );
   }
 
-  /* The horde's own panel: the same cut, bled through with crimson. */
+  /* A label sitting on the top edge of a region. */
+  .region-head {
+    display: flex;
+    align-items: baseline;
+    gap: 0.625rem;
+    padding: 0.625rem 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Kept for the pages that are still a grid of discrete controls, where a
+     boundary genuinely is the point. Flat: no shadow, no radius. */
+  .panel {
+    background: linear-gradient(to bottom, color-mix(in oklab, var(--card), white 2%), var(--card));
+    border: 1px solid var(--border);
+  }
+
   /*
    * The horde's own panel.
    *
@@ -309,17 +454,15 @@
     position: relative;
     background:
       radial-gradient(
-        55% 130% at 108% 34%,
-        color-mix(in oklab, var(--crimson), transparent calc(80% - var(--moon-heat) * 32%)),
-        transparent 72%
+        60% 150% at 100% 0%,
+        color-mix(in oklab, var(--crimson), transparent calc(84% - var(--moon-heat) * 34%)),
+        transparent 70%
       ),
-      linear-gradient(to bottom, color-mix(in oklab, var(--card), white 3%), var(--card));
-    border: 1px solid
-      color-mix(in oklab, var(--border), var(--crimson-lit) calc(16% + var(--moon-heat) * 40%));
-    box-shadow:
-      inset 0 1px 0 0 color-mix(in oklab, white 7%, transparent),
-      0 0 calc(10px + var(--moon-heat) * 34px) calc(-6px - var(--moon-heat) * 4px)
-        color-mix(in oklab, var(--crimson), transparent calc(80% - var(--moon-heat) * 22%));
+      linear-gradient(
+        to bottom,
+        color-mix(in oklab, var(--card), white 2%),
+        color-mix(in oklab, var(--card), transparent 35%)
+      );
   }
 
   /* The one place in the interface allowed a literal red line. It brightens
@@ -327,7 +470,7 @@
   .panel-moon::before {
     content: "";
     position: absolute;
-    inset: -1px -1px auto;
+    inset: 0 0 auto;
     height: 2px;
     background: linear-gradient(
       to right,

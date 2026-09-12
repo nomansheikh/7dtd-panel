@@ -1,5 +1,8 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
+  columnFilteringFeature,
   createFilteredRowModel,
   createSortedRowModel,
   filterFns,
@@ -12,7 +15,6 @@ import {
   type ColumnDef,
   type SortingState,
 } from "@tanstack/react-table";
-import { MoreHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,15 +29,17 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { PlayerActionDialog, type PendingAction } from "@/components/player-actions";
 import { usePlayerAction, usePlayers } from "@/hooks/use-players";
-import { ApiError, type Player } from "@/lib/api";
+import { useServerId } from "@/hooks/use-servers";
+import { api, ApiError, type Player } from "@/lib/api";
 import { formatAge, formatUptime } from "@/lib/format";
 
 function lastSeen(player: Player): string {
@@ -46,7 +50,20 @@ function lastSeen(player: Player): string {
 
 // react-table v9 is feature-based: only the features declared here are wired
 // into the table, which keeps the bundle to what is actually used.
-const features = tableFeatures({ rowSortingFeature, globalFilteringFeature });
+//
+// Row models and the named sort/filter functions are registered here too
+// rather than passed to useTable: in v9 createSortedRowModel and
+// createFilteredRowModel take no arguments, and globalFilteringFeature will
+// not run without columnFilteringFeature alongside it.
+const features = tableFeatures({
+  rowSortingFeature,
+  columnFilteringFeature,
+  globalFilteringFeature,
+  sortedRowModel: createSortedRowModel(),
+  filteredRowModel: createFilteredRowModel(),
+  sortFns,
+  filterFns,
+});
 
 export function PlayersPage() {
   const { data, isLoading } = usePlayers();
@@ -54,6 +71,8 @@ export function PlayersPage() {
   const [filter, setFilter] = useState("");
   const [sorting, setSorting] = useState<SortingState>([]);
   const [pending, setPending] = useState<PendingAction | null>(null);
+  const [showClaims, setShowClaims] = useState(false);
+  const [kickingAll, setKickingAll] = useState(false);
 
   const players = useMemo(() => data?.players ?? [], [data]);
 
@@ -63,7 +82,10 @@ export function PlayersPage() {
         accessorKey: "name",
         header: "Player",
         cell: ({ row }) => (
-          <div className="flex items-center gap-2">
+          <Link
+            to={`/players/${encodeURIComponent(row.original.platformId)}`}
+            className="flex items-center gap-2 hover:text-bone"
+          >
             <span
               aria-hidden
               className={
@@ -72,9 +94,11 @@ export function PlayersPage() {
                   : "size-2 shrink-0 rounded-full bg-status-unknown"
               }
             />
-            <span className="font-medium">{row.original.name}</span>
+            <span className="font-medium underline-offset-4 hover:underline">
+              {row.original.name}
+            </span>
             {row.original.banned && <Badge variant="destructive">banned</Badge>}
-          </div>
+          </Link>
         ),
       },
       {
@@ -155,11 +179,6 @@ export function PlayersPage() {
           );
         },
       },
-      {
-        id: "actions",
-        header: "",
-        cell: ({ row }) => <PlayerActions player={row.original} onPick={setPending} />,
-      },
     ],
     [],
   );
@@ -171,17 +190,13 @@ export function PlayersPage() {
     state: { sorting, globalFilter: filter },
     onSortingChange: setSorting,
     onGlobalFilterChange: setFilter,
-    _rowModels: {
-      sortedRowModel: createSortedRowModel(sortFns),
-      filteredRowModel: createFilteredRowModel(filterFns),
-    },
   });
 
   const online = players.filter((p) => p.online).length;
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="region-head shrink-0 gap-3">
         <span className="stencil">
           {online} online · {players.length} known
         </span>
@@ -189,19 +204,38 @@ export function PlayersPage() {
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           placeholder="Filter by name"
-          className="ml-auto max-w-xs"
+          className="ml-auto h-7 max-w-56 text-xs"
         />
+        {/* Two things that are about everybody rather than about one row, so
+            they sit in the header instead of in every player's menu. */}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 shrink-0 px-2 text-xs text-bone-dim"
+          onClick={() => setShowClaims(true)}
+        >
+          Land claims
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={online === 0}
+          className="h-7 shrink-0 px-2 text-xs text-bone-dim"
+          onClick={() => setKickingAll(true)}
+        >
+          Kick everyone
+        </Button>
       </div>
 
       {isLoading && !data ? (
-        <Skeleton className="h-64 w-full" />
+        <Skeleton className="m-4 h-64 rounded-none" />
       ) : players.length === 0 ? (
-        <p className="panel rounded-md p-6 text-sm text-muted-foreground">
+        <p className="flex flex-1 items-center justify-center p-8 text-center text-sm text-bone-faint">
           Nobody has joined this server yet. Players appear here as soon as they connect, and stay
           listed after they leave.
         </p>
       ) : (
-        <div className="overflow-x-auto panel rounded-md">
+        <div className="region min-h-0 flex-1 overflow-auto">
           <Table>
             <TableHeader>
               {table.getHeaderGroups().map((group) => (
@@ -243,17 +277,17 @@ export function PlayersPage() {
         Playtime and last seen come from a separate endpoint that remembers everyone.
       </p>
 
+      <LandClaimsDialog open={showClaims} onClose={() => setShowClaims(false)} />
+      <KickAllDialog open={kickingAll} onClose={() => setKickingAll(false)} />
+
       <PlayerActionDialog
         pending={pending}
         players={players}
         onClose={() => setPending(null)}
-        onRun={(run) => {
+        onRun={(done, run) => {
           setPending(null);
           action.mutate(run, {
-            onSuccess: (result) =>
-              toast.success(result.result.trim() || "Done", {
-                description: result.command,
-              }),
+            onSuccess: (result) => toast.success(done, { description: result.command }),
             onError: (error) =>
               toast.error("That did not work", {
                 description: error instanceof ApiError ? error.message : "The action failed.",
@@ -265,54 +299,87 @@ export function PlayersPage() {
   );
 }
 
-function PlayerActions({
-  player,
-  onPick,
-}: {
-  player: Player;
-  onPick: (action: PendingAction) => void;
-}) {
-  // Everything except ban needs the player online: the commands address them by
-  // entity id, and an offline player has none.
-  const offline = !player.online;
+/** Who owns keystones, and how much of the map they are holding. */
+function LandClaimsDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const serverId = useServerId();
+  const { data, isLoading } = useQuery({
+    queryKey: ["land-claims", serverId],
+    queryFn: () => api.landClaims(serverId),
+    enabled: open,
+  });
+
+  if (!open) return null;
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm" aria-label={`Actions for ${player.name}`}>
-          <MoreHorizontal />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem disabled={offline} onSelect={() => onPick({ kind: "teleport", player })}>
-          Teleport
-        </DropdownMenuItem>
-        <DropdownMenuItem disabled={offline} onSelect={() => onPick({ kind: "give", player })}>
-          Give item
-        </DropdownMenuItem>
-        <DropdownMenuItem disabled={offline} onSelect={() => onPick({ kind: "xp", player })}>
-          Give XP
-        </DropdownMenuItem>
-        <DropdownMenuItem disabled={offline} onSelect={() => onPick({ kind: "buff", player })}>
-          Buff or debuff
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem disabled={offline} onSelect={() => onPick({ kind: "kill", player })}>
-          Kill
-        </DropdownMenuItem>
-        <DropdownMenuItem disabled={offline} onSelect={() => onPick({ kind: "kick", player })}>
-          Kick
-        </DropdownMenuItem>
-        {player.banned ? (
-          <DropdownMenuItem onSelect={() => onPick({ kind: "unban", player })}>
-            Lift ban
-          </DropdownMenuItem>
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Land claims</DialogTitle>
+          <DialogDescription>
+            Claimed ground is the ground a chunk reset will not touch.
+          </DialogDescription>
+        </DialogHeader>
+        {isLoading ? (
+          <Skeleton className="h-40 w-full rounded-none" />
         ) : (
-          <DropdownMenuItem variant="destructive" onSelect={() => onPick({ kind: "ban", player })}>
-            Ban
-          </DropdownMenuItem>
+          <pre className="readout max-h-96 overflow-auto border border-border p-3 text-xs leading-relaxed whitespace-pre-wrap text-bone-dim">
+            {data?.text.trim() || "The server said nothing."}
+          </pre>
         )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * Disconnects everybody, with a reason they get to read.
+ *
+ * The reason is the whole point of doing this from a panel rather than by
+ * stopping the process: "restarting in five" lands in front of somebody mid
+ * fight, and simply vanishing does not.
+ */
+function KickAllDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const serverId = useServerId();
+  const [reason, setReason] = useState("");
+
+  const kick = useMutation({
+    mutationFn: () => api.kickAll(serverId, reason.trim()),
+    onSuccess: (result) => {
+      toast.success("Everyone kicked", { description: result.command });
+      onClose();
+    },
+    onError: (error) =>
+      toast.error("That did not work", {
+        description: error instanceof ApiError ? error.message : "The action failed.",
+      }),
+  });
+
+  if (!open) return null;
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Kick everyone</DialogTitle>
+          <DialogDescription>
+            Everybody online is disconnected. They can rejoin straight away.
+          </DialogDescription>
+        </DialogHeader>
+        <Input
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="Reason, shown to each player"
+          maxLength={200}
+        />
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button disabled={kick.isPending} onClick={() => kick.mutate()}>
+            Kick everyone
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -1,11 +1,14 @@
 package api
 
 import (
+	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/nomansheikh/7dtd-panel/internal/console"
 	"github.com/nomansheikh/7dtd-panel/internal/httpx"
+	"github.com/nomansheikh/7dtd-panel/internal/sdtd"
 )
 
 // World actions all reduce to a console command, because the REST API has no
@@ -80,6 +83,24 @@ type weatherRequest struct {
 	Value   *float64 `json:"value"`
 	// Defaults returns the weather to simulated behaviour, ignoring Setting.
 	Defaults bool `json:"defaults"`
+	// Storm starts a storm in Biome for StormHours, ignoring Setting.
+	Storm      bool   `json:"storm"`
+	StormHours int    `json:"stormHours"`
+	Biome      string `json:"biome"`
+}
+
+// handleCurrentWeather reports what the weather is actually doing.
+//
+// The panel could set weather but never show it, so every change was made
+// blind. The bare weather command is the only source; there is no REST
+// endpoint for it.
+func (s *Server) handleCurrentWeather(w http.ResponseWriter, r *http.Request) {
+	weather, err := serverFrom(r.Context()).Client.CurrentWeather(r.Context())
+	if err != nil {
+		s.writeGameError(w, err, "could not read the weather")
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, weather)
 }
 
 func (s *Server) handleWeather(w http.ResponseWriter, r *http.Request) {
@@ -90,6 +111,31 @@ func (s *Server) handleWeather(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Defaults {
 		s.runAction(w, r, console.WeatherDefaults(), nil)
+		return
+	}
+
+	if req.Storm {
+		// Checked against the biomes the server just reported, because the
+		// command answers an unknown name with silence rather than an error.
+		weather, err := serverFrom(r.Context()).Client.CurrentWeather(r.Context())
+		if err != nil {
+			s.writeGameError(w, err, "could not read the weather")
+			return
+		}
+		known := false
+		for _, b := range weather.Biomes {
+			if b.Biome == req.Biome {
+				known = true
+				break
+			}
+		}
+		if !known {
+			httpx.WriteError(w, http.StatusBadRequest,
+				"no biome called "+req.Biome+" in this world", "UNKNOWN_BIOME")
+			return
+		}
+		command, buildErr := console.WeatherStorm(req.StormHours, req.Biome)
+		s.runAction(w, r, command, buildErr)
 		return
 	}
 	if req.Value == nil {
@@ -166,11 +212,118 @@ func (s *Server) handleWanderingHorde(w http.ResponseWriter, r *http.Request) {
 	s.runAction(w, r, console.SpawnWanderingHorde(), nil)
 }
 
+func (s *Server) handleAirDrop(w http.ResponseWriter, r *http.Request) {
+	s.runAction(w, r, console.SpawnAirDrop(), nil)
+}
+
+// handleServerVitals reports how hard the game server is working and what it
+// is running. Named apart from /api/health, which is the panel's own liveness.
+func (s *Server) handleServerVitals(w http.ResponseWriter, r *http.Request) {
+	health, err := serverFrom(r.Context()).Client.ServerHealth(r.Context())
+	if err != nil {
+		s.writeGameError(w, err, "could not read the server's health")
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, health)
+}
+
+// handleItemIcon proxies one item's art.
+//
+// Proxied rather than linked because the browser must never address the game
+// server directly: on most installs it is on a private network the panel can
+// reach and a laptop cannot, and the panel is the only thing holding the token.
+// The icons themselves happen to need no auth, which does not change either.
+//
+// Cached hard. The art belongs to the game build, so it cannot change while the
+// server is up, and a picker showing a hundred of them at once should not mean
+// a hundred round trips on every keystroke.
+func (s *Server) handleItemIcon(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	if err := console.CheckItemName(name); err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, err.Error(), "INVALID_ARGUMENT")
+		return
+	}
+
+	icon, err := serverFrom(r.Context()).Client.ItemIcon(r.Context(), name, r.URL.Query().Get("tint"))
+	if errors.Is(err, sdtd.ErrNoIcon) {
+		// Ordinary rather than exceptional: plenty of catalogue entries are
+		// recipes or internal items the game has never drawn.
+		httpx.WriteError(w, http.StatusNotFound, "the game has no icon for that item", "NO_ICON")
+		return
+	}
+	if err != nil {
+		s.writeGameError(w, err, "could not load the item icon")
+		return
+	}
+
+	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Cache-Control", "public, max-age=604800, immutable")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(icon)
+}
+
+// handleSpawnScouts sends screamers to a player.
+//
+// Takes a player because the bare command is documented as usable only by an
+// issuing player, never a remote console. There is no version of this the
+// panel can call without a target.
+func (s *Server) handleSpawnScouts(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		EntityID int `json:"entityId"`
+	}
+	if err := httpx.DecodeJSON(w, r, &req); err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, err.Error(), "INVALID_BODY")
+		return
+	}
+	command, err := console.SpawnScouts(req.EntityID)
+	s.runAction(w, r, command, err)
+}
+
+// handleSaveWorld writes the world to disk.
+func (s *Server) handleSaveWorld(w http.ResponseWriter, r *http.Request) {
+	s.runAction(w, r, console.SaveWorld(), nil)
+}
+
+// handleKillAll clears entities. Never players, whatever the scope.
+func (s *Server) handleKillAll(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Scope string `json:"scope"`
+	}
+	if err := httpx.DecodeJSON(w, r, &req); err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, err.Error(), "INVALID_BODY")
+		return
+	}
+	command, err := console.KillAll(console.KillScope(req.Scope))
+	s.runAction(w, r, command, err)
+}
+
+// handleResetChunks resets every unprotected chunk in the world.
+//
+// Destructive, so runAction refuses it unless PANEL_ALLOW_DESTRUCTIVE is set.
+func (s *Server) handleResetChunks(w http.ResponseWriter, r *http.Request) {
+	s.runAction(w, r, console.ResetChunks(), nil)
+}
+
+// handlePrivateMessage sends a message to one player rather than everybody.
+func (s *Server) handlePrivateMessage(w http.ResponseWriter, r *http.Request) {
+	entityID, ok := s.entityIDFromPath(w, r)
+	if !ok {
+		return
+	}
+	var req sayRequest
+	if err := httpx.DecodeJSON(w, r, &req); err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, err.Error(), "INVALID_BODY")
+		return
+	}
+	command, buildErr := console.SayPlayer(entityID, req.Message)
+	s.runAction(w, r, command, buildErr)
+}
+
 // handleItems serves a ranked slice of the item catalogue for the picker.
 func (s *Server) handleItems(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	items, total, err := serverFrom(r.Context()).Items.Search(
-		r.Context(), query.Get("q"), query.Get("blocks") == "true", 50)
+		r.Context(), query.Get("q"), query.Get("blocks") == "true", intParam(query.Get("limit")))
 	if err != nil {
 		s.writeGameError(w, err, "could not load the item list")
 		return
@@ -181,11 +334,22 @@ func (s *Server) handleItems(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// intParam reads an optional positive integer, leaving the bounds to the
+// catalogue rather than duplicating them here. Anything unparseable reads as
+// absent, which the catalogue answers with its own default.
+func intParam(raw string) int {
+	n, err := strconv.Atoi(raw)
+	if err != nil || n < 0 {
+		return 0
+	}
+	return n
+}
+
 // handleEntities serves spawnable entity classes for the picker.
 func (s *Server) handleEntities(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	entities, total, err := serverFrom(r.Context()).Entities.Search(
-		r.Context(), query.Get("q"), query.Get("all") != "true", 50)
+		r.Context(), query.Get("q"), query.Get("all") != "true", intParam(query.Get("limit")))
 	if err != nil {
 		s.writeGameError(w, err, "could not load the entity list")
 		return

@@ -11,11 +11,13 @@ import (
 )
 
 type fakeEntities struct {
-	classes []sdtd.EntityClass
-	err     error
+	classes  []sdtd.EntityClass
+	err      error
+	gotLimit int
 }
 
-func (f *fakeEntities) Search(_ context.Context, _ string, spawnableOnly bool, _ int) ([]sdtd.EntityClass, int, error) {
+func (f *fakeEntities) Search(_ context.Context, _ string, spawnableOnly bool, limit int) ([]sdtd.EntityClass, int, error) {
+	f.gotLimit = limit
 	if f.err != nil {
 		return nil, 0, f.err
 	}
@@ -96,7 +98,9 @@ func TestWorldActionsBuildTheRightCommands(t *testing.T) {
 		{"set time", "/api/world/time", `{"day":7,"hour":21,"minute":30}`, "settime 7 21 30"},
 		{"weather rain", "/api/world/weather", `{"setting":"Rain","value":0.5}`, "weather Rain 0.5"},
 		{"weather defaults", "/api/world/weather", `{"setting":"","value":null,"defaults":true}`, "weather Defaults"},
-		{"say", "/api/world/say", `{"message":"restarting soon"}`, "say restarting soon"},
+		// Quoted, or the game broadcasts only the first word.
+		{"say", "/api/world/say", `{"message":"restarting soon"}`, `say "restarting soon"`},
+		{"air drop", "/api/world/airdrop", "{}", "spawnairdrop"},
 		{"wandering horde", "/api/world/horde", ``, "spawnwandering"},
 		{
 			// The command takes the class name, not the id from
@@ -235,5 +239,83 @@ func TestEntityPickerHidesUnspawnableByDefault(t *testing.T) {
 		if e.ManualSpawnType == "None" {
 			t.Errorf("%s cannot be spawned but was offered in the picker", e.Name)
 		}
+	}
+}
+
+// The storm command answers an unknown biome with silence, so the panel has to
+// refuse a name the server did not just report rather than sending it.
+func TestStormRejectsABiomeTheWorldDoesNotHave(t *testing.T) {
+	h, game, cookie := worldHarness(t)
+	game.weather = sdtd.Weather{Biomes: []sdtd.BiomeWeather{{Biome: "pine_forest"}}}
+
+	rec := h.do(t, h.request(t, http.MethodPost, "/api/world/weather",
+		`{"storm":true,"stormHours":2,"biome":"not_a_biome"}`, cookie))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d: %s", rec.Code, rec.Body.String())
+	}
+	if len(game.executed) != 0 {
+		t.Errorf("nothing should have reached the server, got %v", game.executed)
+	}
+
+	rec = h.do(t, h.request(t, http.MethodPost, "/api/world/weather",
+		`{"storm":true,"stormHours":2,"biome":"pine_forest"}`, cookie))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d: %s", rec.Code, rec.Body.String())
+	}
+	if len(game.executed) != 1 || game.executed[0] != "weather Storm 2 pine_forest" {
+		t.Errorf("executed %v", game.executed)
+	}
+}
+
+func TestEntitiesLimitReachesTheCatalogue(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		query string
+		want  int
+	}{
+		{"asked for", "?q=&limit=600", 600},
+		{"absent", "?q=", 0},
+		{"not a number", "?q=&limit=all", 0},
+		{"negative", "?q=&limit=-5", 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h, _, cookie := worldHarness(t)
+			entities := &fakeEntities{classes: []sdtd.EntityClass{
+				{Name: "zombieArlene", ManualSpawnType: "Menu"},
+			}}
+			h.srv.Entities = entities
+
+			rec := h.do(t, h.request(t, http.MethodGet, "/api/entities"+tc.query, "", cookie))
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want 200", rec.Code)
+			}
+			if entities.gotLimit != tc.want {
+				t.Fatalf("limit reaching the catalogue = %d, want %d", entities.gotLimit, tc.want)
+			}
+		})
+	}
+}
+
+func TestServerVitalsAreServed(t *testing.T) {
+	h, game, cookie := worldHarness(t)
+	game.health = sdtd.Health{
+		FPS: 19.99, RSSMB: 2595.4, Chunks: 253, Players: 2,
+		GameVersion: "V 3.2.0 (b10)",
+		Mods:        []sdtd.Mod{{Name: "TFP_Harmony", Version: "1.1.0.4"}},
+	}
+
+	rec := h.do(t, h.request(t, http.MethodGet, "/api/vitals", "", cookie))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	var body sdtd.Health
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if body.FPS != 19.99 || body.Chunks != 253 || body.GameVersion != "V 3.2.0 (b10)" {
+		t.Errorf("health = %+v", body)
+	}
+	if len(body.Mods) != 1 {
+		t.Errorf("mods = %d, want 1", len(body.Mods))
 	}
 }

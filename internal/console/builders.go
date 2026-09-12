@@ -290,6 +290,25 @@ func Weather(knob WeatherKnob, value float64) (string, error) {
 // WeatherDefaults returns the weather to its simulated behaviour.
 func WeatherDefaults() string { return "weather Defaults" }
 
+// WeatherStorm starts a storm in one biome for a number of in-game hours.
+//
+// The biome name is interpolated, so it is checked against the identifier
+// charset here and against the server's own list of biomes by the caller. That
+// second check matters: the command answers a name it does not know with
+// silence and no error, so an unvalidated typo would look like it worked.
+func WeatherStorm(hours int, biome string) (string, error) {
+	if hours < 1 {
+		return "", &ErrUnsafe{"duration", "must be at least an hour"}
+	}
+	if hours > 24 {
+		return "", &ErrUnsafe{"duration", "must be 24 hours or fewer"}
+	}
+	if err := checkIdentifier("biome", biome); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("weather Storm %d %s", hours, biome), nil
+}
+
 // SpawnEntityAt spawns entities at a position.
 //
 // The command takes the entity class *name*, not the id from
@@ -318,6 +337,9 @@ func SpawnEntityAt(entityClass string, x, y, z, count int) (string, error) {
 // clock to its day with SetTime.
 func SpawnWanderingHorde() string { return "spawnwandering" }
 
+// SpawnAirDrop drops a supply crate. Takes no arguments.
+func SpawnAirDrop() string { return "spawnairdrop" }
+
 // SpawnScouts spawns screamer scouts at a player.
 func SpawnScouts(entityID int) (string, error) {
 	if err := checkEntityID(entityID); err != nil {
@@ -326,7 +348,193 @@ func SpawnScouts(entityID int) (string, error) {
 	return fmt.Sprintf("spawnscouts %d", entityID), nil
 }
 
+// ShowInventory reads what a player is carrying.
+//
+// The game only has this after the player has been online for about thirty
+// seconds, and says so itself when asked too early. The tag is what makes the
+// output parseable, per the command's own help.
+func ShowInventory(entityID int) (string, error) {
+	if err := checkEntityID(entityID); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("showinventory %d", entityID), nil
+}
+
+// UnlockInventories forces open every container a player has locked.
+func UnlockInventories(entityID int) (string, error) {
+	if err := checkEntityID(entityID); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("unlock %d", entityID), nil
+}
+
+// KickAll disconnects everybody, with a reason they get to read.
+func KickAll(reason string) (string, error) {
+	if reason == "" {
+		return "kickall", nil
+	}
+	if err := checkFreeText("reason", reason); err != nil {
+		return "", err
+	}
+	return `kickall "` + reason + `"`, nil
+}
+
+// ListLandClaims lists who owns keystones, or where one player's are.
+func ListLandClaims(who string) (string, error) {
+	if who == "" {
+		return "listlandprotection summary", nil
+	}
+	if err := checkIdentifier("player", who); err != nil {
+		return "", err
+	}
+	return "listlandprotection " + who, nil
+}
+
+// RemoveLandClaims unbinds a player's claims, leaving the blocks in place but
+// no longer protecting anything.
+func RemoveLandClaims(platformUserID string) (string, error) {
+	if !userID.MatchString(platformUserID) {
+		return "", &ErrUnsafe{"platform user id", "is not in the expected form"}
+	}
+	return "removelandprotection " + platformUserID, nil
+}
+
+// AdminLevel is the permission level a user holds. Nought is full access and
+// anybody without an entry sits at a thousand.
+func SetAdmin(platformUserID string, level int) (string, error) {
+	if !userID.MatchString(platformUserID) {
+		return "", &ErrUnsafe{"platform user id", "is not in the expected form"}
+	}
+	if level < 0 || level > 1000 {
+		return "", &ErrUnsafe{"level", "must be between 0 and 1000"}
+	}
+	return fmt.Sprintf("admin add %s %d", platformUserID, level), nil
+}
+
+// RemoveAdmin drops a user back to the default permission level.
+func RemoveAdmin(platformUserID string) (string, error) {
+	if !userID.MatchString(platformUserID) {
+		return "", &ErrUnsafe{"platform user id", "is not in the expected form"}
+	}
+	return "admin remove " + platformUserID, nil
+}
+
+// ListAdmins and ListWhitelist take no arguments.
+func ListAdmins() string    { return "admin list" }
+func ListWhitelist() string { return "whitelist list" }
+
+// AddToWhitelist puts a user on the list.
+//
+// Worth a warning at the call site: the game documents that once the list has
+// a single entry, nobody absent from it can join at all.
+func AddToWhitelist(platformUserID string) (string, error) {
+	if !userID.MatchString(platformUserID) {
+		return "", &ErrUnsafe{"platform user id", "is not in the expected form"}
+	}
+	return "whitelist add " + platformUserID, nil
+}
+
+// RemoveFromWhitelist takes a user back off it.
+func RemoveFromWhitelist(platformUserID string) (string, error) {
+	if !userID.MatchString(platformUserID) {
+		return "", &ErrUnsafe{"platform user id", "is not in the expected form"}
+	}
+	return "whitelist remove " + platformUserID, nil
+}
+
+// SetMaxPlayers raises or lowers the player cap for this run.
+func SetMaxPlayers(count int) (string, error) {
+	if count < 1 || count > 128 {
+		return "", &ErrUnsafe{"player count", "must be between 1 and 128"}
+	}
+	return fmt.Sprintf("overridemaxplayercount %d", count), nil
+}
+
+// Shutdown stops the game server. There is no starting it again from here.
+func Shutdown() string { return "shutdown" }
+
+// CheckItemName validates a name before it goes into a URL path or a command.
+//
+// Exported because the icon proxy needs the same guarantee the give command
+// does: the name arrives from a URL and is pasted straight into another one.
+func CheckItemName(name string) error {
+	return checkIdentifier("item name", name)
+}
+
+// SaveWorld writes the world to disk. Takes no arguments.
+//
+// Worth having its own button because every other write here is immediate and
+// this one is the only way to make them durable before a restart.
+func SaveWorld() string { return "saveworld" }
+
+// KillScope is how much of the world killall reaches.
+type KillScope string
+
+const (
+	// KillHostiles is the bare command: enemies only.
+	KillHostiles KillScope = ""
+	// KillAlive reaches every living thing except vehicles and turrets, which
+	// includes the animals somebody may have been farming.
+	KillAlive KillScope = "alive"
+	// KillEverything reaches every entity type there is.
+	KillEverything KillScope = "all"
+)
+
+// KillAll clears entities from the world.
+//
+// The game never kills players with this, whichever scope is given, which is
+// the one reassurance worth passing on to whoever is about to press it.
+func KillAll(scope KillScope) (string, error) {
+	switch scope {
+	case KillHostiles:
+		return "killall", nil
+	case KillAlive, KillEverything:
+		return "killall " + string(scope), nil
+	default:
+		return "", &ErrUnsafe{"scope", "is not one of the scopes killall accepts"}
+	}
+}
+
+// ResetChunks resets every unprotected chunk in the world.
+//
+// Deliberately the whole-world form with default grouping, and deliberately
+// not regionreset: that command's protection modes are documented as
+// experimental and able to ignore land claims, which is a way to delete
+// somebody's base with no undo and no warning from the game itself. The
+// grouping default keeps POIs whole so a reset cannot cut one in half.
+//
+// This permanently discards the saved data for every chunk it touches, which
+// is why the policy above files it as destructive.
+func ResetChunks() string { return "worldchunkreset" }
+
+// SayPlayer sends a private message to one player.
+//
+// Quoted for the same reason Say is: unquoted, the game takes only the first
+// word of the message.
+func SayPlayer(entityID int, message string) (string, error) {
+	if err := checkEntityID(entityID); err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(message) == "" {
+		return "", &ErrUnsafe{"message", "is required"}
+	}
+	if err := checkFreeText("message", message); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf(`sayplayer %d "%s"`, entityID, message), nil
+}
+
 // Say broadcasts a message to every player.
+//
+// The message is quoted, because the game's say command takes only the first
+// whitespace-separated token otherwise. Verified on a live server:
+//
+//	say hello there world     broadcasts "hello"
+//	say "hello there world"   broadcasts "hello there world"
+//
+// Every multi-word broadcast the panel sent before this was silently cut to
+// its first word. checkFreeText still rejects a message containing a quote of
+// its own, since the console documents no way to escape one.
 func Say(message string) (string, error) {
 	if strings.TrimSpace(message) == "" {
 		return "", &ErrUnsafe{"message", "is required"}
@@ -334,7 +542,7 @@ func Say(message string) (string, error) {
 	if err := checkFreeText("message", message); err != nil {
 		return "", err
 	}
-	return "say " + message, nil
+	return `say "` + message + `"`, nil
 }
 
 // SetGamePref changes a game preference at runtime.

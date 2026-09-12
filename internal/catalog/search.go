@@ -11,6 +11,28 @@ import (
 	"github.com/nomansheikh/7dtd-panel/internal/sdtd"
 )
 
+// maxSearchLimit is high enough to hand the whole catalogue over at once. Both
+// lists are a few hundred entries, cached, and static for the life of the
+// server, so a picker is better off holding all of it than round-tripping on
+// every keystroke.
+const maxSearchLimit = 2000
+
+// clampLimit keeps a requested page size inside the bounds.
+//
+// Clamped rather than reset: asking for more than the ceiling used to hand back
+// fifty, so a caller wanting everything silently got one page of it with no way
+// to tell the difference.
+func clampLimit(limit int) int {
+	switch {
+	case limit <= 0:
+		return 50
+	case limit > maxSearchLimit:
+		return maxSearchLimit
+	default:
+		return limit
+	}
+}
+
 // ItemFetcher and EntityFetcher are the slices of the game client needed here.
 type ItemFetcher interface {
 	Items(ctx context.Context) ([]sdtd.Item, error)
@@ -96,9 +118,7 @@ func (i *Items) Search(ctx context.Context, query string, includeBlocks bool, li
 	if err != nil {
 		return nil, 0, err
 	}
-	if limit <= 0 || limit > 200 {
-		limit = 50
-	}
+	limit = clampLimit(limit)
 
 	needle := strings.ToLower(strings.TrimSpace(query))
 	matched := make([]sdtd.Item, 0, limit)
@@ -219,9 +239,7 @@ func (e *Entities) Search(ctx context.Context, query string, spawnableOnly bool,
 	if err != nil {
 		return nil, 0, err
 	}
-	if limit <= 0 || limit > 200 {
-		limit = 50
-	}
+	limit = clampLimit(limit)
 
 	needle := strings.ToLower(strings.TrimSpace(query))
 	matched := make([]sdtd.EntityClass, 0, limit)

@@ -51,6 +51,13 @@ type Event struct {
 
 	// Player is set for chat, join and leave events when it could be parsed.
 	Player string `json:"player,omitempty"`
+	// Channel is the chat channel, set only when it is not Global. Party chat
+	// reads very differently from something said to the whole server.
+	Channel string `json:"channel,omitempty"`
+	// Raw is the server's original log line, kept only when Message is a
+	// tidied version of it. Nothing the server said is thrown away; it is just
+	// not what the eye lands on first.
+	Raw string `json:"raw,omitempty"`
 }
 
 // ringSize is how much scrollback a newly connected tab receives. Two thousand
@@ -88,15 +95,24 @@ func (h *Hub) PublishLog(entry sdtd.LogEntry) {
 	}
 	id := entry.ID
 
-	kind, player := classify(entry.Msg)
+	c := classify(entry.Msg)
+
+	// The raw line is kept only when it differs, so the common case — an
+	// ordinary log line nobody reformatted — costs nothing extra on the wire.
+	raw := ""
+	if c.Text != entry.Msg {
+		raw = entry.Msg
+	}
 
 	h.Publish(Event{
-		Kind:     kind,
+		Kind:     c.Kind,
 		At:       at,
 		LogID:    &id,
 		Severity: entry.Type,
-		Message:  entry.Msg,
-		Player:   player,
+		Message:  c.Text,
+		Player:   c.Player,
+		Channel:  c.Channel,
+		Raw:      raw,
 	})
 }
 
@@ -187,27 +203,64 @@ func (h *Hub) Stats() (subscribers, buffered int, dropped int64) {
 // They remain written to fail safe: anything unrecognised stays an ordinary log
 // entry rather than being mislabelled.
 var (
-	chatRe  = regexp.MustCompile(`^Chat\s*\(from\s*'[^']*',\s*entity id\s*'(-?\d+)',\s*to\s*'([^']*)'\):\s*'([^']*)':\s*(.*)$`)
+	// The speaker's name is optional: the server's own broadcasts, which is
+	// what the say command produces, omit it entirely. Verified live, both
+	// shapes:
+	//
+	//	Chat (from 'Steam_76561198803325430', entity id '173', to 'Global'): 'nullish': lkj
+	//	Chat (from '-non-player-', entity id '-1', to 'Global'): restarting in 5
+	chatRe  = regexp.MustCompile(`^Chat\s*\(from\s*'([^']*)',\s*entity id\s*'(-?\d+)',\s*to\s*'([^']*)'\):\s*(?:'([^']*)':\s*)?(.*)$`)
 	joinRe  = regexp.MustCompile(`^GMSG:\s*Player\s*'([^']*)'\s+joined`)
 	partRe  = regexp.MustCompile(`^GMSG:\s*Player\s*'([^']*)'\s+left`)
 	deathRe = regexp.MustCompile(`^GMSG:\s*Player\s*'([^']*)'\s+died`)
 )
 
-// classify labels a log message and extracts the player name where it can.
-func classify(msg string) (Kind, string) {
+// classified is what a log line turned out to be.
+type classified struct {
+	Kind    Kind
+	Player  string
+	Channel string
+	// Text is the part worth reading. For a chat line that is what was
+	// actually said, not the forty characters of platform id wrapped around
+	// it; for anything unrecognised it is the line unchanged.
+	Text string
+}
+
+// classify labels a log message, extracts the player where it can, and reduces
+// the line to the part a person wants to read.
+//
+// The server says:
+//
+//	Chat (from 'Steam_76561198803325430', entity id '173', to 'Global'): 'nullish': hello
+//
+// A panel that shows that verbatim has made the operator do the parsing. The
+// name is already its own column and the platform id is on the players page,
+// so what is left is "hello".
+func classify(msg string) classified {
 	trimmed := strings.TrimSpace(msg)
 
 	if m := chatRe.FindStringSubmatch(trimmed); m != nil {
-		return KindChat, m[3]
+		channel := m[3]
+		if strings.EqualFold(channel, "Global") {
+			channel = ""
+		}
+		// A line with no speaker came from the server itself, which is what an
+		// operator sees after using say. Attributing it to "Server" is what
+		// the game shows players, so it is what the panel should show too.
+		speaker := m[4]
+		if speaker == "" {
+			speaker = "Server"
+		}
+		return classified{Kind: KindChat, Player: speaker, Channel: channel, Text: m[5]}
 	}
 	if m := joinRe.FindStringSubmatch(trimmed); m != nil {
-		return KindJoin, m[1]
+		return classified{Kind: KindJoin, Player: m[1], Text: "joined the game"}
 	}
 	if m := partRe.FindStringSubmatch(trimmed); m != nil {
-		return KindLeave, m[1]
+		return classified{Kind: KindLeave, Player: m[1], Text: "left the game"}
 	}
 	if m := deathRe.FindStringSubmatch(trimmed); m != nil {
-		return KindDeath, m[1]
+		return classified{Kind: KindDeath, Player: m[1], Text: "died"}
 	}
-	return KindLog, ""
+	return classified{Kind: KindLog, Text: msg}
 }

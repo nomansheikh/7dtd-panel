@@ -50,6 +50,10 @@ export interface Dashboard {
     minute: number;
     hostiles: number;
     animals: number;
+    /** How many of the 24 in-game hours are lit. Absent until first polled. */
+    daylightHours?: number;
+    /** Real minutes a whole game day takes. Absent until first polled. */
+    dayMinutes?: number;
   };
   /** Null until the first sample; the API has no uptime field of its own. */
   uptime: { seconds: number } | null;
@@ -141,6 +145,37 @@ export interface HistoryEntry {
   ranAt: string;
 }
 
+/** What the weather is doing in one biome. */
+export interface BiomeWeather {
+  biome: string;
+  /** The server's own word: default, stormbuild or storm. */
+  state: string;
+  temperature: number;
+  clouds: number;
+  wind: number;
+  fog: number;
+  rain: number;
+  snow: number;
+}
+
+export interface Weather {
+  /**
+   * What an admin has forced on top of the simulation.
+   *
+   * A cleared override and one deliberately set to zero both report 0; the
+   * server gives no way to tell them apart.
+   */
+  overrides: {
+    clouds: number;
+    fog: number;
+    rain: number;
+    snow: number;
+    temperature: number;
+    wind: number;
+  };
+  biomes: BiomeWeather[];
+}
+
 /** The weather parameters the game's own weather command accepts. */
 export type WeatherSetting = "Clouds" | "Rain" | "SnowFall" | "Wind" | "Temp" | "Fog";
 
@@ -149,6 +184,28 @@ export interface ActionResult {
   command: string;
   result: string;
   ranAt: string;
+}
+
+/** How hard the game server is working, and what it is running. */
+export interface Vitals {
+  fps: number;
+  heapMb: number;
+  maxHeapMb: number;
+  rssMb: number;
+  uptimeMinutes: number;
+  chunks: number;
+  players: number;
+  zombies: number;
+  entities: number;
+  items: number;
+  gameVersion: string;
+  mods: { name: string; version: string }[];
+}
+
+/** A console reply handed back as the game wrote it. */
+export interface RawReply {
+  command: string;
+  text: string;
 }
 
 export interface EntityClass {
@@ -211,8 +268,14 @@ export interface PanelEvent {
   /** The game server's own log line number; absent for panel-generated events. */
   logId?: number;
   severity?: string;
+  /** The part worth reading: what was said, not the log line around it. */
   message: string;
   player?: string;
+  /** The chat channel, present only when it is not Global. */
+  channel?: string;
+  /** The server's original line, present only when message is a tidied form
+      of it. Nothing is thrown away, it is just not what you read first. */
+  raw?: string;
 }
 
 /** ApiError carries the panel's real message so the UI never has to invent one. */
@@ -323,6 +386,116 @@ export const api = {
       body: JSON.stringify({ setting, value }),
     }),
 
+  weather: (serverId: string) => request<Weather>(forServer(serverId, "/world/weather")),
+
+  /** Screamers at a player. The bare command cannot be run remotely. */
+  spawnScouts: (serverId: string, entityId: number) =>
+    request<ActionResult>(forServer(serverId, "/world/scouts"), {
+      method: "POST",
+      body: JSON.stringify({ entityId }),
+    }),
+
+  /** The panel's own build and liveness, not the game's. */
+  panelHealth: () => request<{ status: string; version: string }>("/api/health"),
+
+  vitals: (serverId: string) => request<Vitals>(forServer(serverId, "/vitals")),
+
+  /** Only saved once a player has been online about thirty seconds. */
+  inventory: (serverId: string, entityId: number) =>
+    request<RawReply>(forServer(serverId, `/players/${entityId}/inventory`)),
+
+  unlockInventories: (serverId: string, entityId: number) =>
+    request<ActionResult>(forServer(serverId, `/players/${entityId}/unlock`), {
+      method: "POST",
+      body: "{}",
+    }),
+
+  kickAll: (serverId: string, reason: string) =>
+    request<ActionResult>(forServer(serverId, "/players/kickall"), {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    }),
+
+  landClaims: (serverId: string, player = "") =>
+    request<RawReply>(
+      forServer(serverId, `/land-claims${player ? `?player=${encodeURIComponent(player)}` : ""}`),
+    ),
+
+  removeLandClaims: (serverId: string, platformUserId: string) =>
+    request<ActionResult>(forServer(serverId, "/land-claims/remove"), {
+      method: "POST",
+      body: JSON.stringify({ platformUserId }),
+    }),
+
+  access: (serverId: string) =>
+    request<{ admins: string; whitelist: string }>(forServer(serverId, "/access")),
+
+  /** Nought is full access; anybody without an entry sits at a thousand. */
+  setAdmin: (serverId: string, platformUserId: string, level: number) =>
+    request<ActionResult>(forServer(serverId, "/access/admin"), {
+      method: "POST",
+      body: JSON.stringify({ platformUserId, level }),
+    }),
+
+  removeAdmin: (serverId: string, platformUserId: string) =>
+    request<ActionResult>(forServer(serverId, "/access/admin/remove"), {
+      method: "POST",
+      body: JSON.stringify({ platformUserId }),
+    }),
+
+  addToWhitelist: (serverId: string, platformUserId: string) =>
+    request<ActionResult>(forServer(serverId, "/access/whitelist"), {
+      method: "POST",
+      body: JSON.stringify({ platformUserId }),
+    }),
+
+  removeFromWhitelist: (serverId: string, platformUserId: string) =>
+    request<ActionResult>(forServer(serverId, "/access/whitelist/remove"), {
+      method: "POST",
+      body: JSON.stringify({ platformUserId }),
+    }),
+
+  setMaxPlayers: (serverId: string, count: number) =>
+    request<ActionResult>(forServer(serverId, "/max-players"), {
+      method: "POST",
+      body: JSON.stringify({ count }),
+    }),
+
+  shutdown: (serverId: string) =>
+    request<ActionResult>(forServer(serverId, "/shutdown"), { method: "POST", body: "{}" }),
+
+  saveWorld: (serverId: string) =>
+    request<ActionResult>(forServer(serverId, "/world/save"), { method: "POST", body: "{}" }),
+
+  /** "" is hostiles only, "alive" adds animals, "all" is everything. */
+  killAll: (serverId: string, scope: "" | "alive" | "all") =>
+    request<ActionResult>(forServer(serverId, "/world/killall"), {
+      method: "POST",
+      body: JSON.stringify({ scope }),
+    }),
+
+  /** Permanently discards the saved data for every unprotected chunk. */
+  resetChunks: (serverId: string) =>
+    request<ActionResult>(forServer(serverId, "/world/reset-chunks"), {
+      method: "POST",
+      body: "{}",
+    }),
+
+  privateMessage: (serverId: string, entityId: number, message: string) =>
+    request<ActionResult>(forServer(serverId, `/players/${entityId}/pm`), {
+      method: "POST",
+      body: JSON.stringify({ message }),
+    }),
+
+  airDrop: (serverId: string) =>
+    request<ActionResult>(forServer(serverId, "/world/airdrop"), { method: "POST", body: "{}" }),
+
+  storm: (serverId: string, biome: string, hours: number) =>
+    request<ActionResult>(forServer(serverId, "/world/weather"), {
+      method: "POST",
+      body: JSON.stringify({ storm: true, biome, stormHours: hours }),
+    }),
+
   resetWeather: (serverId: string) =>
     request<ActionResult>(forServer(serverId, "/world/weather"), {
       method: "POST",
@@ -347,15 +520,33 @@ export const api = {
       body: JSON.stringify({ message }),
     }),
 
-  searchEntities: (serverId: string, q: string) =>
+  /**
+   * Every class the game will spawn from a command.
+   *
+   * Fetched whole rather than searched: it is a few hundred entries, cached on
+   * the server and unchanging, so the picker can group and filter it without a
+   * round trip per keystroke.
+   */
+  spawnableEntities: (serverId: string) =>
     request<{ entities: EntityClass[]; total: number }>(
-      forServer(serverId, `/entities?q=${encodeURIComponent(q)}`),
+      forServer(serverId, `/entities?q=&limit=600`),
     ),
 
   searchBuffs: (serverId: string, q: string) =>
     request<{ buffs: Buff[]; total: number }>(
       forServer(serverId, `/buffs?q=${encodeURIComponent(q)}`),
     ),
+
+  /**
+   * The whole item catalogue in one go.
+   *
+   * About fifteen hundred entries and 128 kB, static for the life of the
+   * server, so the picker can browse and filter it without a round trip per
+   * keystroke. Blocks are excluded: with them the list is twenty-six thousand
+   * and it is not what anybody means by giving somebody something.
+   */
+  allItems: (serverId: string) =>
+    request<{ items: GameItem[]; total: number }>(forServer(serverId, "/items?q=&limit=2000")),
 
   searchItems: (serverId: string, q: string) =>
     request<{ items: GameItem[]; total: number }>(
