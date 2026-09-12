@@ -486,23 +486,12 @@ function AccessTab() {
         </div>
       </div>
 
-      <div className="space-y-3 border-t border-crimson-deep pt-8">
-        <span className="stencil text-crimson-lit">Shut down</span>
-        <p className="max-w-prose text-xs text-bone-faint">
-          Stops the game server. The panel cannot start it again — whatever runs it, systemd, Docker
-          or a terminal, has to do that.
-        </p>
-        <Button
-          variant="outline"
-          size="sm"
-          className="border-crimson text-crimson-lit hover:bg-crimson-deep/30"
-          onClick={() =>
-            act.mutate({ done: "Server shutting down", run: () => api.shutdown(serverId) })
-          }
-        >
-          Shut down the server
-        </Button>
-      </div>
+      {/*
+        Stopping the server used to be a bare button at the bottom of this
+        page. It lives on the overview now: that is where somebody is already
+        looking when they decide the server needs restarting, and it is a thing
+        you do to a server rather than a setting you change about one.
+      */}
     </div>
   );
 }

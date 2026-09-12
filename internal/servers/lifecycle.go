@@ -19,7 +19,7 @@ token takes effect without a restart — which is the entire point of moving thi
 out of the environment.
 */
 func (r *Registry) Add(gc config.Game) (*Server, error) {
-	srv, err := build(gc, r.log, r.pollInterval, r.failureThreshold)
+	srv, err := build(gc, r.log, r.pollInterval, r.failureThreshold, r.allowDestructive)
 	if err != nil {
 		return nil, err
 	}

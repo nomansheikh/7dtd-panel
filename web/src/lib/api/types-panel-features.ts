@@ -134,3 +134,29 @@ export interface Kit {
   name: string;
   items: KitItem[];
 }
+
+/** Where a power sequence has got to. */
+export type PowerPhase =
+  | "idle"
+  | "countdown"
+  | "saving"
+  | "stopping"
+  | "watching"
+  | "back"
+  | "gone"
+  | "failed"
+  | "cancelled";
+
+export interface PowerStatus {
+  phase: PowerPhase;
+  /** What was asked for, which decides how the outcome reads. */
+  intent?: "restart" | "stop";
+  startedAt?: string;
+  /** When the server will be told to stop. */
+  stopAt?: string;
+  /** How long it was away, once it is back. */
+  downSeconds?: number;
+  problem?: string;
+  /** Why it did not come back, when it did not. */
+  note?: string;
+}

@@ -15,6 +15,7 @@ import (
 	"github.com/nomansheikh/7dtd-panel/internal/auth"
 	"github.com/nomansheikh/7dtd-panel/internal/config"
 	"github.com/nomansheikh/7dtd-panel/internal/events"
+	"github.com/nomansheikh/7dtd-panel/internal/power"
 	"github.com/nomansheikh/7dtd-panel/internal/servers"
 	"github.com/nomansheikh/7dtd-panel/internal/state"
 	"github.com/nomansheikh/7dtd-panel/internal/store"
@@ -92,6 +93,10 @@ func newHarness(t *testing.T, snap state.Snapshot) *harness {
 		Items:    &fakeItems{},
 		Entities: &fakeEntities{},
 		Buffs:    &fakeBuffs{},
+		Power: power.New(power.Options{
+			Server: testServerID, Client: game, Poller: fakeState{snap: snap},
+			AllowDestructive: true,
+		}),
 	}
 
 	s := NewServer(Deps{

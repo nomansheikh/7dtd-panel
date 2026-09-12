@@ -16,6 +16,7 @@ import (
 	"github.com/nomansheikh/7dtd-panel/internal/catalog"
 	"github.com/nomansheikh/7dtd-panel/internal/config"
 	"github.com/nomansheikh/7dtd-panel/internal/events"
+	"github.com/nomansheikh/7dtd-panel/internal/power"
 	"github.com/nomansheikh/7dtd-panel/internal/sdtd"
 	"github.com/nomansheikh/7dtd-panel/internal/state"
 )
@@ -107,6 +108,9 @@ type Server struct {
 	Items    ItemCatalogue
 	Entities EntityCatalogue
 	Buffs    BuffCatalogue
+	// Power runs the stop sequence for this server and watches whether it
+	// comes back. One per server, because only one can be stopping at a time.
+	Power *power.Controller
 
 	// These are the concrete collaborators Run needs. A Server assembled by a
 	// test leaves them nil and is simply never Run.
@@ -120,7 +124,10 @@ type Server struct {
 build assembles one server's runtime. It contacts nothing: the panel must start
 and serve a clear disconnected state even when every game server is down.
 */
-func build(gc config.Game, log *slog.Logger, pollInterval time.Duration, failureThreshold int) (*Server, error) {
+func build(
+	gc config.Game, log *slog.Logger, pollInterval time.Duration,
+	failureThreshold int, allowDestructive bool,
+) (*Server, error) {
 	serverLog := log.With("server", gc.ID)
 
 	client, err := sdtd.New(sdtd.Options{
@@ -161,5 +168,12 @@ func build(gc config.Game, log *slog.Logger, pollInterval time.Duration, failure
 	})
 	srv.Poller = poller
 	srv.runner = poller
+	srv.Power = power.New(power.Options{
+		Server:           gc.ID,
+		Client:           client,
+		Poller:           poller,
+		Announce:         hub,
+		AllowDestructive: allowDestructive,
+	})
 	return srv, nil
 }
