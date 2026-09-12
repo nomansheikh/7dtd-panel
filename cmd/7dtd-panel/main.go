@@ -98,6 +98,7 @@ func run() error {
 		Logger:           log,
 		PollInterval:     cfg.Panel.PollInterval,
 		FailureThreshold: cfg.Panel.FailureThreshold,
+		AllowDestructive: cfg.Panel.AllowDestructive,
 		// Everything built on top of a server starts and stops with it, so
 		// adding one from the panel gets a chat bot and a scheduler without a
 		// restart.

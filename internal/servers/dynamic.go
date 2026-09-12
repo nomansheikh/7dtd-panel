@@ -31,6 +31,7 @@ type Registry struct {
 	log              *slog.Logger
 	pollInterval     time.Duration
 	failureThreshold int
+	allowDestructive bool
 	attach           Attach
 
 	mu      sync.RWMutex
@@ -49,6 +50,9 @@ type Options struct {
 	Logger           *slog.Logger
 	PollInterval     time.Duration
 	FailureThreshold int
+	// AllowDestructive mirrors PANEL_ALLOW_DESTRUCTIVE, and reaches the power
+	// controller: a stop is a stop however it is dressed up.
+	AllowDestructive bool
 	// Attach is optional; a registry without one still polls and streams.
 	Attach Attach
 }
@@ -62,6 +66,7 @@ func New(opts Options) *Registry {
 		log:              opts.Logger,
 		pollInterval:     opts.PollInterval,
 		failureThreshold: opts.FailureThreshold,
+		allowDestructive: opts.AllowDestructive,
 		attach:           opts.Attach,
 		byID:             make(map[string]*Server),
 		stop:             make(map[string]context.CancelFunc),

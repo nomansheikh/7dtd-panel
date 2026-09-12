@@ -121,6 +121,11 @@ func (s *Server) Routes() *http.ServeMux {
 	scoped("POST /api/servers/{server}/access/whitelist/remove", s.handleRemoveWhitelist)
 	scoped("POST /api/servers/{server}/max-players", s.handleSetMaxPlayers)
 	scoped("POST /api/servers/{server}/shutdown", s.handleShutdown)
+
+	// Stopping the server, with warnings, and watching for it to come back.
+	scoped("GET /api/servers/{server}/power", s.handlePowerStatus)
+	scoped("POST /api/servers/{server}/power", s.handlePowerStart)
+	scoped("POST /api/servers/{server}/power/cancel", s.handlePowerCancel)
 	// Ban takes a platform id, not an entity id: it is the one action that has
 	// to work for someone who has already left.
 	scoped("POST /api/servers/{server}/players/ban", s.handleBan)

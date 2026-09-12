@@ -1,5 +1,6 @@
 import { featuresApi } from "@/lib/api/features";
 import { accessApi } from "@/lib/api/access";
+import { powerApi } from "@/lib/api/power";
 import { playersApi } from "@/lib/api/players";
 import { worldApi } from "@/lib/api/world";
 import { panelApi } from "@/lib/api/panel";
@@ -17,6 +18,7 @@ import { panelApi } from "@/lib/api/panel";
 export const api = {
   ...panelApi,
   ...worldApi,
+  ...powerApi,
   ...playersApi,
   ...accessApi,
   ...featuresApi,

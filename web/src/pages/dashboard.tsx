@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { AlertTriangle, ArrowUpRight, Check, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PowerPanel } from "@/components/power-panel";
 import { useDashboard } from "@/hooks/use-dashboard";
 import { useEvents } from "@/hooks/use-events";
 import { usePlayers } from "@/hooks/use-players";
@@ -57,6 +58,13 @@ export function DashboardPage() {
         <Vitals />
         <Roster max={data.players.max} />
         <Joining server={data.server} />
+        {/*
+          Last in the column, because it is the one thing here that acts rather
+          than reports — but on this page rather than buried in settings, since
+          this is where somebody is already looking when they decide the server
+          needs restarting.
+        */}
+        <PowerPanel />
       </div>
 
       <aside className="flex min-h-0 flex-col border-t border-border lg:border-t-0 lg:border-l">
