@@ -72,9 +72,17 @@ func (s *Server) handleServers(w http.ResponseWriter, _ *http.Request) {
 		out = append(out, summary)
 	}
 
+	// A fresh install has none, and this is the first request it makes. An
+	// empty default is what tells the UI to offer the setup wizard instead of
+	// a switcher.
+	defaultID := ""
+	if first := s.registry.Default(); first != nil {
+		defaultID = first.ID
+	}
+
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{
 		"servers": out,
 		// The UI opens on this one.
-		"default": s.registry.Default().ID,
+		"default": defaultID,
 	})
 }

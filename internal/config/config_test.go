@@ -129,6 +129,38 @@ func TestLoadRejectsBadValues(t *testing.T) {
 	}
 }
 
+/*
+Starting with no game server at all is now how a fresh install begins.
+
+The panel boots, serves its UI, and offers to add one. Before this it refused
+to start, which meant a new user had to get a host and a token right in a
+compose file before they could see the thing they were configuring.
+*/
+func TestLoadAcceptsNoGameServerAtAll(t *testing.T) {
+	cfg, err := Load(env(map[string]string{"PANEL_ADMIN_PASSWORD": "correct-horse"}))
+	if err != nil {
+		t.Fatalf("Load failed with an empty game-server environment: %v", err)
+	}
+	if len(cfg.Servers) != 0 {
+		t.Errorf("servers = %+v, want none", cfg.Servers)
+	}
+}
+
+// But saying something about a server and getting it wrong is still an error,
+// or a misspelled variable would leave somebody staring at an empty panel.
+func TestLoadStillRejectsAHalfConfiguredServer(t *testing.T) {
+	_, err := Load(env(map[string]string{
+		"PANEL_ADMIN_PASSWORD": "correct-horse",
+		"SDTD_API_PORT":        "8080",
+	}))
+	if err == nil {
+		t.Fatal("Load succeeded with a port but no host")
+	}
+	if !strings.Contains(err.Error(), "SDTD_HOST is required") {
+		t.Errorf("error %q does not name the missing host", err)
+	}
+}
+
 func TestLoadReportsEveryProblemAtOnce(t *testing.T) {
 	// Failing one variable at a time turns first-run setup into a guessing
 	// game, so all problems must surface together.

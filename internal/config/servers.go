@@ -32,6 +32,15 @@ func envSuffix(id string) string {
 func (p *parser) servers() []Game {
 	list := strings.TrimSpace(p.getenv("SDTD_SERVERS"))
 	if list == "" {
+		// Nothing about a game server in the environment at all is now a
+		// legitimate way to start: the panel boots with none and offers to add
+		// one. But a half-filled environment is still an error — somebody who
+		// set SDTD_API_PORT and misspelled SDTD_HOST meant to configure a
+		// server, and silence would leave them staring at an empty panel
+		// wondering why.
+		if !p.anySingleServerVar() {
+			return nil
+		}
 		return []Game{p.singleServer()}
 	}
 
@@ -65,6 +74,20 @@ func (p *parser) servers() []Game {
 }
 
 // singleServer reads the original unprefixed variables.
+// anySingleServerVar reports whether the environment says anything at all about
+// a single game server.
+func (p *parser) anySingleServerVar() bool {
+	for _, name := range []string{
+		"SDTD_NAME", "SDTD_HOST", "SDTD_API_PORT", "SDTD_API_SCHEME",
+		"SDTD_API_TOKEN_NAME", "SDTD_API_TOKEN_SECRET",
+	} {
+		if strings.TrimSpace(p.getenv(name)) != "" {
+			return true
+		}
+	}
+	return false
+}
+
 func (p *parser) singleServer() Game {
 	g := p.serverWithPrefix("default", "SDTD_")
 	if g.Name == "default" && g.Host != "" {
