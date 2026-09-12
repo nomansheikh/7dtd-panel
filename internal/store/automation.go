@@ -19,9 +19,33 @@ const (
 	// one no ordinary scheduler can express: it moves with the game's clock,
 	// not the wall's.
 	TriggerBloodmoon TriggerKind = "bloodmoon"
-	// TriggerJoin fires when a player connects.
-	TriggerJoin TriggerKind = "join"
+	// TriggerGametime fires at an hour of the game's day, every in-game day.
+	// Dusk on a world with thirty-minute days comes round twice an hour.
+	TriggerGametime TriggerKind = "gametime"
+	// TriggerUptime fires once the server has been up long enough, which is
+	// what a restart should really be keyed to rather than a wall clock.
+	TriggerUptime TriggerKind = "uptime"
+	// TriggerEmpty fires when the last player leaves.
+	TriggerEmpty TriggerKind = "empty"
+	// TriggerBloodmoonOver fires when a horde is survived.
+	TriggerBloodmoonOver TriggerKind = "bloodmoonover"
+
+	// TriggerJoin, TriggerLeave and TriggerDeath come off the event stream
+	// rather than the clock.
+	TriggerJoin  TriggerKind = "join"
+	TriggerLeave TriggerKind = "leave"
+	TriggerDeath TriggerKind = "death"
 )
+
+// EventTriggers are the ones set off by something happening rather than some
+// time arriving. They never fire on a clock tick.
+func (k TriggerKind) IsEvent() bool {
+	switch k {
+	case TriggerJoin, TriggerLeave, TriggerDeath:
+		return true
+	}
+	return false
+}
 
 // Task is one thing the panel does on its own.
 type Task struct {
@@ -40,13 +64,6 @@ type Task struct {
 	LastRunAt time.Time `json:"lastRunAt,omitzero"`
 	LastKey   string    `json:"-"`
 	UpdatedAt time.Time `json:"updatedAt"`
-}
-
-// TaskRun is one record of a task going off.
-type TaskRun struct {
-	Name  string    `json:"name"`
-	RanAt time.Time `json:"ranAt"`
-	Error string    `json:"error,omitempty"`
 }
 
 // Tasks lists one server's tasks, in name order.
@@ -133,106 +150,4 @@ func (s *Store) DeleteTask(ctx context.Context, serverID, name string) error {
 		return fmt.Errorf("store: delete task history for %s: %w", name, err)
 	}
 	return nil
-}
-
-/*
-ClaimTask records that a task is running, and reports whether this caller is
-the one that got it.
-
-The claim is the same insert-decides pattern the chat cooldowns use, for the
-same reason: two pollers a moment apart must not both decide a daily task is
-due. The update only lands when the stored bookkeeping still looks the way the
-caller believed it did, so exactly one of them writes and exactly one of them
-runs the commands.
-*/
-func (s *Store) ClaimTask(
-	ctx context.Context, serverID, name string,
-	expect Task, newKey string, now time.Time,
-) (bool, error) {
-	res, err := s.db.ExecContext(ctx,
-		`UPDATE automation_tasks SET last_run_at = ?, last_key = ?
-		   WHERE server_id = ? AND name = ? AND last_run_at = ? AND last_key = ?`,
-		now.Unix(), newKey, serverID, name, unixOrZero(expect.LastRunAt), expect.LastKey)
-	if err != nil {
-		return false, fmt.Errorf("store: claim task: %w", err)
-	}
-	n, err := res.RowsAffected()
-	if err != nil {
-		return false, fmt.Errorf("store: claim task: %w", err)
-	}
-	return n > 0, nil
-}
-
-// unixOrZero matches how a never-run task is stored, which is 0 rather than the
-// Unix epoch.
-func unixOrZero(t time.Time) int64 {
-	if t.IsZero() {
-		return 0
-	}
-	return t.Unix()
-}
-
-// AddTaskRun records that a task went off, and what came of it.
-func (s *Store) AddTaskRun(ctx context.Context, serverID string, run TaskRun) error {
-	_, err := s.db.ExecContext(ctx,
-		`INSERT INTO automation_runs (server_id, name, ran_at, error) VALUES (?, ?, ?, ?)`,
-		serverID, run.Name, run.RanAt.Unix(), truncate(run.Error, maxStoredOutput))
-	if err != nil {
-		return fmt.Errorf("store: record task run: %w", err)
-	}
-	return nil
-}
-
-// RecentTaskRuns returns what the panel has done lately, newest first.
-func (s *Store) RecentTaskRuns(ctx context.Context, serverID string, limit int) ([]TaskRun, error) {
-	if limit <= 0 || limit > 200 {
-		limit = 50
-	}
-	rows, err := s.db.QueryContext(ctx,
-		`SELECT name, ran_at, error FROM automation_runs
-		   WHERE server_id = ? ORDER BY ran_at DESC, id DESC LIMIT ?`, serverID, limit)
-	if err != nil {
-		return nil, fmt.Errorf("store: list task runs: %w", err)
-	}
-	defer rows.Close()
-
-	var out []TaskRun
-	for rows.Next() {
-		var r TaskRun
-		var ranAt int64
-		if err := rows.Scan(&r.Name, &ranAt, &r.Error); err != nil {
-			return nil, fmt.Errorf("store: scan task run: %w", err)
-		}
-		r.RanAt = time.Unix(ranAt, 0).UTC()
-		out = append(out, r)
-	}
-	return out, rows.Err()
-}
-
-// PruneTaskRuns keeps the newest rows per server.
-func (s *Store) PruneTaskRuns(ctx context.Context, keep int) (int64, error) {
-	res, err := s.db.ExecContext(ctx,
-		`DELETE FROM automation_runs WHERE id NOT IN (
-		   SELECT id FROM automation_runs r2
-		     WHERE r2.server_id = automation_runs.server_id
-		     ORDER BY ran_at DESC, id DESC LIMIT ?)`, keep)
-	if err != nil {
-		return 0, fmt.Errorf("store: prune task runs: %w", err)
-	}
-	n, _ := res.RowsAffected()
-	return n, nil
-}
-
-// Task reads one task by name.
-func (s *Store) Task(ctx context.Context, serverID, name string) (Task, error) {
-	tasks, err := s.Tasks(ctx, serverID)
-	if err != nil {
-		return Task{}, err
-	}
-	for _, t := range tasks {
-		if t.Name == name {
-			return t, nil
-		}
-	}
-	return Task{}, ErrNotFound
 }

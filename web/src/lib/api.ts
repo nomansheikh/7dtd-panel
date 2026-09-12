@@ -316,7 +316,17 @@ export interface ChatCommand {
 }
 
 /** What sets a task off. */
-export type TaskTrigger = "every" | "daily" | "bloodmoon" | "join";
+export type TaskTrigger =
+  | "daily"
+  | "every"
+  | "gametime"
+  | "bloodmoon"
+  | "bloodmoonover"
+  | "uptime"
+  | "empty"
+  | "join"
+  | "leave"
+  | "death";
 
 /** One thing the panel does on its own. */
 export interface Task {

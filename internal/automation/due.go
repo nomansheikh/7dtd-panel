@@ -18,9 +18,7 @@ exists rather than a README section explaining how to write one.
 package automation
 
 import (
-	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/nomansheikh/7dtd-panel/internal/state"
@@ -28,148 +26,134 @@ import (
 )
 
 /*
-due reports whether a task should run now, and the key to record if it does.
+decision is what a tick concludes about one task.
 
-The key is what makes "again" mean something. For an interval it is empty and
-the last-run time is enough. For a daily task it is the date, so a panel that
-restarts at noon does not repeat the morning's task. For a blood moon it is the
-day the horde lands on, so a task set half an hour before goes off once rather
-than once per poll for thirty minutes.
+Key is what the world looks like to this task right now. Recording it even when
+nothing runs is what lets a trigger fire on a change: the last player leaving is
+interesting, and the next thirty seconds of nobody being there is not. A task
+that has already recorded "empty" is one that has seen this, so it stays quiet
+until somebody joins and the key clears.
 */
-func due(task store.Task, snap state.Snapshot, now time.Time) (bool, string) {
+type decision struct {
+	// Fire is whether the commands should run.
+	Fire bool
+	// Key is the bookkeeping to record. For an interval it is empty and the
+	// last-run time carries the meaning; for everything else it names the
+	// occasion, so that "again" means a different one.
+	Key string
+	// Remember records Key without running, which is how a change-driven task
+	// disarms itself.
+	Remember bool
+}
+
+/*
+due reports what should happen to a task now.
+
+Three shapes live here. An interval is answered by the clock alone. A daily or
+game-time task names its occasion, so that being asked twice in the same one
+changes nothing. And a change-driven task names the state of the world, firing
+only on the way into a state worth acting on.
+*/
+func due(task store.Task, snap state.Snapshot, now time.Time) decision {
 	switch task.Trigger {
 	case store.TriggerEvery:
-		if task.Minutes <= 0 {
-			return false, ""
-		}
-		if task.LastRunAt.IsZero() {
+		if task.Minutes <= 0 || task.LastRunAt.IsZero() {
 			// Never run. Start the clock now rather than firing immediately:
 			// switching on "every six hours" should not mean "and also now".
-			return false, ""
+			return decision{}
 		}
-		return now.Sub(task.LastRunAt) >= time.Duration(task.Minutes)*time.Minute, ""
+		return decision{Fire: now.Sub(task.LastRunAt) >= time.Duration(task.Minutes)*time.Minute}
 
 	case store.TriggerDaily:
 		at, ok := parseHHMM(task.At)
 		if !ok {
-			return false, ""
+			return decision{}
 		}
 		today := time.Date(now.Year(), now.Month(), now.Day(), at/60, at%60, 0, 0, now.Location())
 		if now.Before(today) {
-			return false, ""
+			return decision{}
 		}
 		key := today.Format("2006-01-02")
 		if task.LastKey == key {
-			return false, ""
+			return decision{}
 		}
 		// More than a day late means the panel was off when it was due. Run it
 		// now rather than silently skipping to tomorrow: a missed restart is
 		// worth doing late, and the alternative is a task that quietly never
 		// happens on a panel that gets restarted a lot.
-		return true, key
+		return decision{Fire: true, Key: key}
+
+	case store.TriggerGametime:
+		at, ok := parseHHMM(task.At)
+		if !ok || snap.StatsAt.IsZero() {
+			return decision{}
+		}
+		nowMins := snap.Stats.GameTime.Hours*60 + snap.Stats.GameTime.Minutes
+		if nowMins < at {
+			return decision{}
+		}
+		key := "d" + strconv.Itoa(snap.Stats.GameTime.Days)
+		if task.LastKey == key {
+			return decision{}
+		}
+		return decision{Fire: true, Key: key}
 
 	case store.TriggerBloodmoon:
 		left, ok := untilBloodmoon(snap, now)
 		if !ok {
-			return false, ""
+			return decision{}
 		}
 		if left > time.Duration(task.Minutes)*time.Minute {
-			return false, ""
+			return decision{}
 		}
 		// Once per horde, named by the day it lands on.
 		key := "day" + strconv.Itoa(snap.Bloodmoon.Next.Days)
 		if task.LastKey == key {
-			return false, ""
+			return decision{}
 		}
-		return true, key
-	}
-	return false, ""
-}
+		return decision{Fire: true, Key: key}
 
-/*
-untilBloodmoon is how long, in real time, until the horde arrives.
-
-The game reports the blood moon as a game day, and how long a game day takes in
-real minutes. Neither alone answers the question an operator is asking, which is
-how long they have. This is the arithmetic that turns one into the other, and
-it is why a schedule written here beats one written in crontab: a server with
-ninety-minute days and one with thirty-minute days need different wall-clock
-warnings for the same in-game moment, and neither operator should have to work
-that out.
-*/
-func untilBloodmoon(snap state.Snapshot, _ time.Time) (time.Duration, bool) {
-	if snap.BloodmoonAt.IsZero() || snap.StatsAt.IsZero() {
-		return 0, false
-	}
-	if snap.Bloodmoon.Active {
-		return 0, false
-	}
-	dayMinutes := snap.DayMinutes
-	if dayMinutes <= 0 {
-		return 0, false
-	}
-
-	// The horde lands at dusk on its day, which is dawn plus the world's own
-	// daylight length.
-	daylight := snap.DaylightHours
-	if daylight <= 0 || daylight >= 24 {
-		daylight = 18
-	}
-	dusk := float64(dawnHour + daylight)
-
-	nowGame := float64(snap.Stats.GameTime.Days)*24 +
-		float64(snap.Stats.GameTime.Hours) +
-		float64(snap.Stats.GameTime.Minutes)/60
-	hordeGame := float64(snap.Bloodmoon.Next.Days)*24 + dusk
-
-	gameHours := hordeGame - nowGame
-	if gameHours <= 0 {
-		return 0, false
-	}
-	// Game hours to real minutes, through the server's own day length.
-	real := gameHours / 24 * float64(dayMinutes)
-	return time.Duration(real * float64(time.Minute)), true
-}
-
-// dawnHour is when the game's day starts. Fixed in the game; the length of the
-// day is not, and comes from the server's own setting.
-const dawnHour = 4
-
-// parseHHMM reads "HH:MM" into minutes past midnight.
-func parseHHMM(s string) (int, bool) {
-	h, m, found := strings.Cut(strings.TrimSpace(s), ":")
-	if !found {
-		return 0, false
-	}
-	hours, err := strconv.Atoi(h)
-	if err != nil || hours < 0 || hours > 23 {
-		return 0, false
-	}
-	mins, err := strconv.Atoi(m)
-	if err != nil || mins < 0 || mins > 59 {
-		return 0, false
-	}
-	return hours*60 + mins, true
-}
-
-// ValidateTrigger checks a trigger is one the engine can act on.
-func ValidateTrigger(t store.Task) error {
-	switch t.Trigger {
-	case store.TriggerEvery:
-		if t.Minutes < 1 || t.Minutes > 7*24*60 {
-			return fmt.Errorf("an interval must be between a minute and a week")
+	case store.TriggerBloodmoonOver:
+		if snap.BloodmoonAt.IsZero() {
+			return decision{}
 		}
-	case store.TriggerDaily:
-		if _, ok := parseHHMM(t.At); !ok {
-			return fmt.Errorf("a daily time must look like 05:00")
+		if snap.Bloodmoon.Active {
+			// Remember that one is under way, so its ending is a change.
+			return decision{Key: "during", Remember: task.LastKey != "during"}
 		}
-	case store.TriggerBloodmoon:
-		if t.Minutes < 0 || t.Minutes > 24*60 {
-			return fmt.Errorf("a blood moon warning must be within a day of it")
+		if task.LastKey != "during" {
+			// Not in one, and no horde was seen to end. Nothing to announce —
+			// a panel started at noon has not just survived anything.
+			return decision{}
 		}
-	case store.TriggerJoin:
-	default:
-		return fmt.Errorf("unknown trigger %q", t.Trigger)
+		return decision{Fire: true, Key: ""}
+
+	case store.TriggerEmpty:
+		if snap.StatsAt.IsZero() {
+			return decision{}
+		}
+		if snap.Stats.Players > 0 {
+			return decision{Key: "", Remember: task.LastKey != ""}
+		}
+		if task.LastKey == "empty" {
+			return decision{}
+		}
+		return decision{Fire: true, Key: "empty"}
+
+	case store.TriggerUptime:
+		up, ok := snap.UptimeAt(now)
+		if !ok || task.Minutes <= 0 {
+			return decision{}
+		}
+		if up < time.Duration(task.Minutes)*time.Minute {
+			// Below the line. A restart puts it back here, which re-arms the
+			// task for the next time the server has been up too long.
+			return decision{Key: "", Remember: task.LastKey != ""}
+		}
+		if task.LastKey == "over" {
+			return decision{}
+		}
+		return decision{Fire: true, Key: "over"}
 	}
-	return nil
+	return decision{}
 }
