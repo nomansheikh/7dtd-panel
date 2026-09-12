@@ -5,6 +5,12 @@ import { ChevronDown, Minus, Plus, Search, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "@/components/ui/input-group";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -411,19 +417,24 @@ export function ItemPicker({
                       {pick.item.localizedName}
                     </span>
 
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-6"
-                        onClick={() =>
-                          update(pick.item.name, { count: Math.max(1, pick.count - 1) })
-                        }
-                        aria-label="One fewer"
-                      >
-                        <Minus className="size-3" />
-                      </Button>
-                      <Input
+                    {/*
+                      One control rather than three: the steppers and the field
+                      are the same question, and three separately bordered
+                      things sitting a gap apart read as three.
+                    */}
+                    <InputGroup className="h-7 w-32 shrink-0">
+                      <InputGroupAddon align="inline-start">
+                        <InputGroupButton
+                          size="icon-xs"
+                          onClick={() =>
+                            update(pick.item.name, { count: Math.max(1, pick.count - 1) })
+                          }
+                          aria-label={`One fewer ${pick.item.localizedName}`}
+                        >
+                          <Minus className="size-3" />
+                        </InputGroupButton>
+                      </InputGroupAddon>
+                      <InputGroupInput
                         inputMode="numeric"
                         value={String(pick.count)}
                         onChange={(e) =>
@@ -431,19 +442,19 @@ export function ItemPicker({
                             count: Math.max(1, Number(e.target.value) || 1),
                           })
                         }
-                        className="h-6 w-14 text-center text-xs"
+                        className="readout h-7 px-1 text-center text-xs"
                         aria-label={`How many ${pick.item.localizedName}`}
                       />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-6"
-                        onClick={() => update(pick.item.name, { count: pick.count + 1 })}
-                        aria-label="One more"
-                      >
-                        <Plus className="size-3" />
-                      </Button>
-                    </div>
+                      <InputGroupAddon align="inline-end">
+                        <InputGroupButton
+                          size="icon-xs"
+                          onClick={() => update(pick.item.name, { count: pick.count + 1 })}
+                          aria-label={`One more ${pick.item.localizedName}`}
+                        >
+                          <Plus className="size-3" />
+                        </InputGroupButton>
+                      </InputGroupAddon>
+                    </InputGroup>
 
                     <Select
                       value={String(pick.quality)}
@@ -452,7 +463,7 @@ export function ItemPicker({
                       }
                     >
                       <SelectTrigger
-                        className="h-6 w-auto gap-1.5 px-2 text-xs"
+                        className="h-7 w-auto gap-1.5 px-2 text-xs"
                         aria-label={`Quality of ${pick.item.localizedName}`}
                       >
                         <SelectValue />
