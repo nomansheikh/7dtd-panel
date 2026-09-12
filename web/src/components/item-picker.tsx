@@ -463,7 +463,7 @@ export function ItemPicker({
                       }
                     >
                       <SelectTrigger
-                        className="h-7 w-auto gap-1.5 px-2 text-xs"
+                        className="h-7 w-auto gap-1.5 px-2 text-xs data-[size=default]:h-7"
                         aria-label={`Quality of ${pick.item.localizedName}`}
                       >
                         <SelectValue />

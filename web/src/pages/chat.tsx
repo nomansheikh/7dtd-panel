@@ -386,7 +386,10 @@ function Picker({
 }) {
   return (
     <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="h-7 w-auto gap-1.5 px-2 text-xs" aria-label={label}>
+      <SelectTrigger
+        className="h-7 w-auto gap-1.5 px-2 text-xs data-[size=default]:h-7"
+        aria-label={label}
+      >
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
