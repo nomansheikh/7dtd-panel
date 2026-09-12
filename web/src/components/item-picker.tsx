@@ -543,13 +543,13 @@ export function ItemPicker({
                         {
                           onSuccess: () => {
                             toast.success(`Saved as !kit ${name}`, {
-                              description: "Players can ask for it by name once !kit is switched on.",
+                              description:
+                                "Players can ask for it by name once !kit is switched on.",
                             });
                             if (purpose === "kit") onClose();
                             else setKitName("");
                           },
-                          onError: (err) =>
-                            toast.error("Not saved", { description: err.message }),
+                          onError: (err) => toast.error("Not saved", { description: err.message }),
                         },
                       );
                     }}

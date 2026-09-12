@@ -307,9 +307,9 @@ export function PlayerPage() {
               ))}
             </div>
             <p className="text-2xs text-bone-faint">
-              The number is the game's permission level, lower being more. Which commands each
-              level may actually run is set per command in the server's serveradmin.xml, so these
-              names are what the numbers are usually used for rather than fixed powers.
+              The number is the game's permission level, lower being more. Which commands each level
+              may actually run is set per command in the server's serveradmin.xml, so these names
+              are what the numbers are usually used for rather than fixed powers.
             </p>
           </div>
           {isAdmin && (

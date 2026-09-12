@@ -116,9 +116,7 @@ export function ChatPage() {
       <section>
         <div className="region-head">
           <span className="stencil">Kits</span>
-          <span className="readout text-xs text-bone-faint">
-            {kits.data?.length ?? 0} saved
-          </span>
+          <span className="readout text-xs text-bone-faint">{kits.data?.length ?? 0} saved</span>
           <Button
             variant="ghost"
             size="sm"
@@ -223,7 +221,9 @@ function CommandRow({ command, kits }: { command: ChatCommand; kits: Kit[] }) {
   const noKits = command.name === "kit" && command.enabled && kits.length === 0;
 
   return (
-    <li className={cn("border-b border-border px-4 py-3 md:px-6", command.enabled && "bg-accent/20")}>
+    <li
+      className={cn("border-b border-border px-4 py-3 md:px-6", command.enabled && "bg-accent/20")}
+    >
       <div className="flex items-start gap-4">
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-2">
@@ -328,15 +328,7 @@ function Choice({
 
 /* ------------------------------------------------------------------ kits -- */
 
-function Kits({
-  kits,
-  loading,
-  onBuild,
-}: {
-  kits: Kit[];
-  loading: boolean;
-  onBuild: () => void;
-}) {
+function Kits({ kits, loading, onBuild }: { kits: Kit[]; loading: boolean; onBuild: () => void }) {
   const [editing, setEditing] = useState<Kit | null>(null);
   const [confirming, setConfirming] = useState<Kit | null>(null);
   const remove = useDeleteKit();
