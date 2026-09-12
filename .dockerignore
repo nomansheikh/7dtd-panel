@@ -1,0 +1,19 @@
+# Everything the build does not need. Keeping this tight matters more than
+# usual: the build context is sent to the daemon before anything runs, and
+# node_modules alone is hundreds of megabytes.
+.git
+.github
+node_modules
+web/node_modules
+web/dist
+internal/web/dist
+*.db
+*.db-wal
+*.db-shm
+.env
+.env.*
+!.env.example
+.tmp-verify
+docs
+*.md
+!README.md
