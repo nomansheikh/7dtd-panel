@@ -1,13 +1,14 @@
 name: Release
 
-# Tags only. A push to main should not overwrite the image people are running;
-# shipping is a deliberate act, and the tag is what makes it one.
+# You tag, this builds. Nothing here decides a version or cuts a release on
+# its own — pushing the tag is the deliberate act, and everything below is
+# just the work that follows it.
 on:
   push:
     tags: ["v*"]
 
 permissions:
-  contents: read
+  contents: write
   packages: write
 
 jobs:
@@ -16,10 +17,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
-      # arm64 matters here: a good number of these servers run on a Pi or an
-      # ARM VPS, and emulating the build is far cheaper than asking them to
-      # compile it themselves.
+      # arm64 matters here: plenty of these servers run on a Pi or an ARM VPS,
+      # and emulating the build is far cheaper than asking them to compile it.
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
 
@@ -33,10 +35,17 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository }}
+          # latest=auto moves :latest to the highest release and leaves it alone
+          # for a prerelease, so v0.1.0-rc.1 can be published and tested without
+          # becoming what everybody following the README pulls.
+          #
+          # The obvious-looking `enable={{is_default_branch}}` does not work
+          # here: this only runs on a tag, and a tag ref is never the default
+          # branch, so :latest would never have been published at all.
+          flavor: latest=auto
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable={{is_default_branch}}
 
       - uses: docker/build-push-action@v6
         with:
@@ -48,3 +57,21 @@ jobs:
           build-args: VERSION=${{ github.ref_name }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # The release notes come from CHANGELOG.md, which you wrote before
+      # tagging. A prerelease tag is marked as one, which is what keeps it out
+      # of "latest release" on the repository page.
+      - name: Publish the GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          notes=$(awk -v tag="${TAG#v}" '
+            $0 ~ "^## \\[?" tag {found=1; next}
+            found && /^## / {exit}
+            found {print}
+          ' CHANGELOG.md)
+          [ -z "$notes" ] && notes="See CHANGELOG.md."
+          prerelease=""
+          case "$TAG" in *-*) prerelease="--prerelease" ;; esac
+          gh release create "$TAG" --title "$TAG" --notes "$notes" $prerelease

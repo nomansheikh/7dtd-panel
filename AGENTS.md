@@ -92,7 +92,10 @@ This project's credibility rests on its claims being true.
 ## Git
 
 - **Conventional commits**, imperative mood, subject line at most 50
-  characters, body wrapped at 72. The body says why.
+  characters, body wrapped at 72. The body says why. These are not
+  decoration: the release version and the changelog are worked out from
+  them, so a `feat:` that should have been a `fix:` cuts a minor release.
+  See [docs/releasing.md](docs/releasing.md).
 - **No AI attribution anywhere.** Not in commit messages, not in PR
   descriptions, not in comments. No `Co-Authored-By` for a tool, no
   "generated with" line, no mention of which assistant wrote something.

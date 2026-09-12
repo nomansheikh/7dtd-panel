@@ -3,6 +3,11 @@
 A self-hostable web admin panel for **7 Days to Die** dedicated servers.
 Go backend, React frontend, one binary, one container.
 
+> **Early days.** This is pre-1.0 and the version number means it: things
+> may move between releases. It is run daily against a live server, but it
+> has not been through many hands yet. See [what is not yet
+> proven](#what-is-not-yet-proven).
+
 The browser never talks to the game server. The API token lives only in the
 panel and every game call is proxied, so nothing that reaches a browser tab
 can be replayed against your world.
@@ -103,6 +108,22 @@ in the UI — this is the way to do it.
 For several game servers, see the commented section in
 [`.env.example`](.env.example).
 
+## What is not yet proven
+
+Everything here works against the server it was built on. These parts have
+not been exercised anywhere else, and are the most likely to bite:
+
+- **Chat commands answering a live player.** Every layer is tested and the
+  log formats are pinned to real output, but the loop of somebody typing
+  `!day` in game and getting a reply has not been run end to end.
+- **Most automation triggers.** The daily one has fired for real. The blood
+  moon, uptime, join, leave, death and empty triggers are covered by tests
+  rather than by having happened.
+- **A server whose token is wrong still shows as online.** The panel's
+  health check uses an endpoint that needs no credentials, so a bad token
+  only surfaces when something tries to write. The connection test on the
+  setup page catches it there; the dashboard does not.
+
 ## Things worth knowing
 
 - **Copy buttons do nothing over plain HTTP on a LAN.** The clipboard API
@@ -116,9 +137,27 @@ For several game servers, see the commented section in
   as uid 65532, and `docker compose up` with the named volume above just
   works. If you swap it for a host path, `chown 65532:65532` that directory
   first or SQLite cannot create its database.
+- **Back up `panel.db` before upgrading.** Migrations are forward-only by
+  design, so an older image cannot make sense of a newer database. It is one
+  file; see [releasing](docs/releasing.md#upgrading-and-why-downgrading-does-not-work).
 - **The map page does not exist yet.** `enablerendering` can only turn map
   rendering *off*, so it needs a `serverconfig.xml` change and a restart to
   enable, which the panel cannot do for you.
+
+## Versions
+
+Pre-1.0, so `0.MINOR.PATCH`, and the number is worked out from the commit
+messages rather than chosen. Three tags are published: an exact one that
+never moves, a `0.MINOR` that picks up fixes, and `latest`.
+
+For a server you care about, pin the minor:
+
+```yaml
+image: ghcr.io/nomansheikh/7dtd-panel:0.1
+```
+
+How it all works, and what to do when a release goes wrong, is in
+[docs/releasing.md](docs/releasing.md).
 
 ## Contributing
 
