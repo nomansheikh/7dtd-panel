@@ -142,6 +142,14 @@ func (s *Server) Routes() *http.ServeMux {
 	scoped("GET /api/servers/{server}/settings", s.handleSettings)
 	scoped("PUT /api/servers/{server}/settings/{name}", s.handleUpdateSetting)
 
+	// The chat bot: which commands it answers, and the kits it hands out.
+	scoped("GET /api/servers/{server}/chat/commands", s.handleChatCommands)
+	scoped("PUT /api/servers/{server}/chat/commands/{name}", s.handleSaveChatCommand)
+	scoped("DELETE /api/servers/{server}/chat/commands/{name}", s.handleDeleteChatCommand)
+	scoped("GET /api/servers/{server}/chat/kits", s.handleKits)
+	scoped("PUT /api/servers/{server}/chat/kits/{name}", s.handleSaveKit)
+	scoped("DELETE /api/servers/{server}/chat/kits/{name}", s.handleDeleteKit)
+
 	scoped("GET /api/servers/{server}/items", s.handleItems)
 	scoped("GET /api/servers/{server}/entities", s.handleEntities)
 	scoped("GET /api/servers/{server}/buffs", s.handleBuffs)

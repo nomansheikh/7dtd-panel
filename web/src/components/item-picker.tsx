@@ -1,8 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { ChevronDown, Minus, Plus, Search, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "@/components/ui/input-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Sheet,
   SheetContent,
@@ -12,7 +26,8 @@ import {
 } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useServerId } from "@/hooks/use-servers";
-import { api, type GameItem } from "@/lib/api";
+import { useDeleteKit, useKits, useSaveKit } from "@/hooks/use-chat";
+import { api, type GameItem, type Kit } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 /**
@@ -30,6 +45,11 @@ import { cn } from "@/lib/utils";
  * the panel composes: a basket of items becomes a run of commands, and a
  * basket worth keeping becomes a kit. That is the part the game's API does not
  * do and the panel can.
+ *
+ * The same sheet builds kits, because it is the same act. A kit was briefly
+ * kept in local storage, on the reasoning that it was one operator's habit
+ * rather than server state — which stopped being true the moment the chat bot
+ * could hand one over at three in the morning with no browser open anywhere.
  */
 
 /** One line of a delivery. */
@@ -39,25 +59,32 @@ export interface Pick {
   quality: number;
 }
 
-const KITS_KEY = "7dtd-panel.kits";
-
 /**
  * How good the thing is when it arrives.
  *
- * Nought means the panel leaves the argument off and the game decides. One to
- * six is the game's own scale, and it is deliberately described rather than
- * renamed: nothing the server exposes carries tier names — /api/item returns a
- * name, a localised name and whether it is a block — so any words here would be
- * invented, and invented words that look official are worse than a number.
+ * Nought means the panel leaves the argument off entirely and the game decides;
+ * one to six is the game's own scale, worst to best.
+ *
+ * The words are the panel's, and the number is kept beside each one rather than
+ * replaced by it. That pairing is the whole point: nothing the server exposes
+ * carries tier names — /api/item returns a name, a localised name and whether
+ * it is a block — so a word on its own would be invented vocabulary dressed up
+ * as the game's, and an operator comparing it to a wiki would find nothing.
+ * Six bare digits told them nothing either. Both together are honest and
+ * readable, and the number is what ends up in the command.
+ *
+ * In a dropdown rather than a row of buttons: seven of these under every line
+ * of the basket was most of the sheet, and six of the seven were always the
+ * wrong answer.
  */
 const QUALITIES = [
-  { value: 0, label: "Any", hint: "let the game decide" },
-  { value: 1, label: "1", hint: "worst" },
-  { value: 2, label: "2", hint: "" },
-  { value: 3, label: "3", hint: "" },
-  { value: 4, label: "4", hint: "" },
-  { value: 5, label: "5", hint: "" },
-  { value: 6, label: "6", hint: "best" },
+  { value: 0, label: "Any quality" },
+  { value: 1, label: "Crude · 1" },
+  { value: 2, label: "Basic · 2" },
+  { value: 3, label: "Decent · 3" },
+  { value: 4, label: "Good · 4" },
+  { value: 5, label: "Fine · 5" },
+  { value: 6, label: "Flawless · 6" },
 ];
 
 /*
@@ -124,36 +151,43 @@ function ItemIcon({ name, className }: { name: string; className?: string }) {
 }
 
 interface Props {
+  /**
+   * What the basket is for: handing over now, or saving under a name.
+   *
+   * The browsing, the basket and the quality controls are identical either
+   * way — only the last step differs — so this is a flag rather than a second
+   * component that would drift from this one within a release.
+   */
+  purpose?: "give" | "kit";
   /** Who it is going to, for the wording on the button. */
-  recipient: string;
+  recipient?: string;
   /** How many are online, for the fan-out. */
-  alsoOnline: number;
-  onGive: (picks: Pick[], everyone: boolean) => void;
+  alsoOnline?: number;
+  onGive?: (picks: Pick[], everyone: boolean) => void;
+  /** The kit being changed, when there is one. Its name is then fixed. */
+  editing?: Kit;
   onClose: () => void;
 }
 
-export function ItemPicker({ recipient, alsoOnline, onGive, onClose }: Props) {
+export function ItemPicker({
+  purpose = "give",
+  recipient = "",
+  alsoOnline = 0,
+  onGive,
+  editing,
+  onClose,
+}: Props) {
   const serverId = useServerId();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
   const [showInternal, setShowInternal] = useState(false);
   const [basket, setBasket] = useState<Pick[]>([]);
   const [basketOpen, setBasketOpen] = useState(true);
-  const [kitName, setKitName] = useState("");
-  const [kits, setKits] = useState<Record<string, Pick[]>>({});
+  const [kitName, setKitName] = useState(editing?.name ?? "");
 
-  useEffect(() => {
-    try {
-      setKits(JSON.parse(localStorage.getItem(KITS_KEY) ?? "{}"));
-    } catch {
-      setKits({});
-    }
-  }, []);
-
-  const saveKits = (next: Record<string, Pick[]>) => {
-    setKits(next);
-    localStorage.setItem(KITS_KEY, JSON.stringify(next));
-  };
+  const kits = useKits();
+  const saveKit = useSaveKit();
+  const deleteKit = useDeleteKit();
 
   // The whole catalogue, once. It is 128 kB and does not change while the
   // server is up, so filtering it here is instant and browsing it is possible
@@ -169,6 +203,39 @@ export function ItemPicker({ recipient, alsoOnline, onGive, onClose }: Props) {
     const all = data?.items ?? [];
     return showInternal ? all : all.filter(hasRealName);
   }, [data, showInternal]);
+
+  /**
+   * Turns a saved kit back into a basket.
+   *
+   * A kit stores only the item's internal name, because that is what the give
+   * command takes and the only part that is stable. Everything else — the
+   * display name, the artwork — is looked up in the catalogue that is already
+   * loaded. An item that is no longer in the catalogue still comes back, under
+   * its internal name, rather than quietly vanishing from a kit that somebody
+   * is still handing out.
+   */
+  const asBasket = useMemo(
+    () =>
+      (kit: Kit): Pick[] => {
+        const catalogue = new Map((data?.items ?? []).map((item) => [item.name, item]));
+        return kit.items.map((line) => ({
+          item: catalogue.get(line.item) ?? {
+            name: line.item,
+            localizedName: line.item,
+            isBlock: false,
+          },
+          count: line.count,
+          quality: line.quality,
+        }));
+      },
+    [data],
+  );
+
+  // A kit opened for editing fills the basket once the catalogue has arrived,
+  // so its rows carry names and artwork rather than raw ids.
+  useEffect(() => {
+    if (editing && data) setBasket(asBasket(editing));
+  }, [editing, data, asBasket]);
 
   const counts = useMemo(() => {
     const out: Record<string, number> = { all: items.length };
@@ -221,9 +288,16 @@ export function ItemPicker({ recipient, alsoOnline, onGive, onClose }: Props) {
       */}
       <SheetContent side="right" className="w-full gap-0 p-0 sm:max-w-3xl">
         <SheetHeader className="region-head shrink-0 space-y-0 p-3 md:px-4">
-          <SheetTitle className="stencil">Give to {recipient}</SheetTitle>
+          <SheetTitle className="stencil">
+            {purpose === "kit"
+              ? editing
+                ? `Edit the ${editing.name} kit`
+                : "Build a kit"
+              : `Give to ${recipient}`}
+          </SheetTitle>
           <SheetDescription className="sr-only">
-            Browse the catalogue and build a basket to hand over.
+            Browse the catalogue and build a basket{" "}
+            {purpose === "kit" ? "to save under a name." : "to hand over."}
           </SheetDescription>
         </SheetHeader>
 
@@ -336,26 +410,31 @@ export function ItemPicker({ recipient, alsoOnline, onGive, onClose }: Props) {
           {basket.length > 0 && basketOpen && (
             <ul className="max-h-56 overflow-y-auto border-t border-border">
               {basket.map((pick) => (
-                <li key={pick.item.name} className="border-b border-border/60 p-3 md:px-4">
-                  <div className="flex items-center gap-2">
+                <li key={pick.item.name} className="border-b border-border/60 px-3 py-2 md:px-4">
+                  <div className="flex flex-wrap items-center gap-2">
                     <ItemIcon name={pick.item.name} className="size-6 shrink-0" />
                     <span className="min-w-0 flex-1 truncate text-xs text-bone">
                       {pick.item.localizedName}
                     </span>
 
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-6"
-                        onClick={() =>
-                          update(pick.item.name, { count: Math.max(1, pick.count - 1) })
-                        }
-                        aria-label="One fewer"
-                      >
-                        <Minus className="size-3" />
-                      </Button>
-                      <Input
+                    {/*
+                      One control rather than three: the steppers and the field
+                      are the same question, and three separately bordered
+                      things sitting a gap apart read as three.
+                    */}
+                    <InputGroup className="h-7 w-32 shrink-0">
+                      <InputGroupAddon align="inline-start">
+                        <InputGroupButton
+                          size="icon-xs"
+                          onClick={() =>
+                            update(pick.item.name, { count: Math.max(1, pick.count - 1) })
+                          }
+                          aria-label={`One fewer ${pick.item.localizedName}`}
+                        >
+                          <Minus className="size-3" />
+                        </InputGroupButton>
+                      </InputGroupAddon>
+                      <InputGroupInput
                         inputMode="numeric"
                         value={String(pick.count)}
                         onChange={(e) =>
@@ -363,19 +442,40 @@ export function ItemPicker({ recipient, alsoOnline, onGive, onClose }: Props) {
                             count: Math.max(1, Number(e.target.value) || 1),
                           })
                         }
-                        className="h-6 w-14 text-center text-xs"
+                        className="readout h-7 px-1 text-center text-xs"
                         aria-label={`How many ${pick.item.localizedName}`}
                       />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-6"
-                        onClick={() => update(pick.item.name, { count: pick.count + 1 })}
-                        aria-label="One more"
+                      <InputGroupAddon align="inline-end">
+                        <InputGroupButton
+                          size="icon-xs"
+                          onClick={() => update(pick.item.name, { count: pick.count + 1 })}
+                          aria-label={`One more ${pick.item.localizedName}`}
+                        >
+                          <Plus className="size-3" />
+                        </InputGroupButton>
+                      </InputGroupAddon>
+                    </InputGroup>
+
+                    <Select
+                      value={String(pick.quality)}
+                      onValueChange={(quality) =>
+                        update(pick.item.name, { quality: Number(quality) })
+                      }
+                    >
+                      <SelectTrigger
+                        className="h-7 w-auto gap-1.5 px-2 text-xs data-[size=default]:h-7"
+                        aria-label={`Quality of ${pick.item.localizedName}`}
                       >
-                        <Plus className="size-3" />
-                      </Button>
-                    </div>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {QUALITIES.map((q) => (
+                          <SelectItem key={q.value} value={String(q.value)} className="text-xs">
+                            {q.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
 
                     <Button
                       variant="ghost"
@@ -389,26 +489,6 @@ export function ItemPicker({ recipient, alsoOnline, onGive, onClose }: Props) {
                       <Trash2 className="size-3" />
                     </Button>
                   </div>
-
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <span className="stencil">Quality</span>
-                    {QUALITIES.map((q) => (
-                      <button
-                        key={q.value}
-                        type="button"
-                        onClick={() => update(pick.item.name, { quality: q.value })}
-                        className={cn(
-                          "border px-2 py-0.5 text-xs transition-colors",
-                          q.value === pick.quality
-                            ? "border-border bg-accent text-bone"
-                            : "border-transparent text-bone-faint hover:text-bone-dim",
-                        )}
-                      >
-                        {q.label}
-                        {q.hint && <span className="ml-1 text-2xs text-bone-faint">{q.hint}</span>}
-                      </button>
-                    ))}
-                  </div>
                 </li>
               ))}
             </ul>
@@ -416,35 +496,36 @@ export function ItemPicker({ recipient, alsoOnline, onGive, onClose }: Props) {
         </div>
 
         {/*
-          Kits: a basket worth keeping. Held in the browser rather than on the
-          server because it is one operator's habit, not server state.
+          Kits: a basket worth keeping, saved on the panel rather than in this
+          browser, because the chat bot hands them out too.
         */}
-        {(Object.keys(kits).length > 0 || basket.length > 0) && (
+        {((kits.data?.length ?? 0) > 0 || basket.length > 0) && (
           <div className="shrink-0 space-y-2 border-t border-border p-3 md:px-4">
-            {Object.keys(kits).length > 0 && (
+            {(kits.data?.length ?? 0) > 0 && !editing && (
               <div className="flex flex-wrap items-center gap-1">
                 <span className="stencil mr-1">Kits</span>
-                {Object.entries(kits).map(([name, picks]) => (
-                  <span key={name} className="flex items-center border border-border">
+                {kits.data?.map((kit) => (
+                  <span key={kit.name} className="flex items-center border border-border">
                     <button
                       type="button"
                       className="px-2 py-1 text-xs text-bone-dim hover:text-bone"
-                      onClick={() => setBasket(picks)}
+                      onClick={() => setBasket(asBasket(kit))}
                     >
-                      {name}
+                      {kit.name}
                       <span className="readout ml-1.5 text-2xs text-bone-faint">
-                        {picks.reduce((s, p) => s + p.count, 0)}
+                        {kit.items.reduce((sum, line) => sum + line.count, 0)}
                       </span>
                     </button>
                     <button
                       type="button"
                       className="px-1.5 py-1 text-bone-faint hover:text-crimson-lit"
-                      aria-label={`Forget the ${name} kit`}
-                      onClick={() => {
-                        const next = { ...kits };
-                        delete next[name];
-                        saveKits(next);
-                      }}
+                      aria-label={`Delete the ${kit.name} kit`}
+                      onClick={() =>
+                        deleteKit.mutate(kit.name, {
+                          onError: (err) =>
+                            toast.error("Not deleted", { description: err.message }),
+                        })
+                      }
                     >
                       <Trash2 className="size-3" />
                     </button>
@@ -454,48 +535,76 @@ export function ItemPicker({ recipient, alsoOnline, onGive, onClose }: Props) {
             )}
 
             {basket.length > 0 && (
-              <div className="flex gap-2">
-                <Input
-                  value={kitName}
-                  onChange={(e) => setKitName(e.target.value)}
-                  placeholder="Save this basket as a kit"
-                  className="h-7 flex-1 text-xs"
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7"
-                  disabled={kitName.trim() === ""}
-                  onClick={() => {
-                    saveKits({ ...kits, [kitName.trim()]: basket });
-                    setKitName("");
-                  }}
-                >
-                  Save
-                </Button>
+              <div className="space-y-1">
+                <div className="flex gap-2">
+                  <Input
+                    value={kitName}
+                    onChange={(e) => setKitName(e.target.value.toLowerCase())}
+                    placeholder="Save this basket as a kit"
+                    className="h-7 flex-1 text-xs"
+                    disabled={Boolean(editing)}
+                  />
+                  <Button
+                    variant={purpose === "kit" ? "default" : "outline"}
+                    size="sm"
+                    className="h-7"
+                    disabled={kitName.trim() === "" || saveKit.isPending}
+                    onClick={() => {
+                      const name = kitName.trim();
+                      saveKit.mutate(
+                        {
+                          name,
+                          items: basket.map((pick) => ({
+                            item: pick.item.name,
+                            count: pick.count,
+                            quality: pick.quality,
+                          })),
+                        },
+                        {
+                          onSuccess: () => {
+                            toast.success(`Saved as !kit ${name}`, {
+                              description:
+                                "Players can ask for it by name once !kit is switched on.",
+                            });
+                            if (purpose === "kit") onClose();
+                            else setKitName("");
+                          },
+                          onError: (err) => toast.error("Not saved", { description: err.message }),
+                        },
+                      );
+                    }}
+                  >
+                    {editing ? "Save changes" : "Save kit"}
+                  </Button>
+                </div>
+                <p className="text-2xs text-bone-faint">
+                  Lowercase letters, digits, dash and underscore — it has to be typeable in chat.
+                </p>
               </div>
             )}
           </div>
         )}
 
-        <div className="flex shrink-0 gap-2 border-t border-border p-3 md:px-4">
-          <Button
-            className="flex-1"
-            disabled={basket.length === 0}
-            onClick={() => onGive(basket, false)}
-          >
-            Give to {recipient}
-          </Button>
-          {alsoOnline > 1 && (
+        {purpose === "give" && onGive && (
+          <div className="flex shrink-0 gap-2 border-t border-border p-3 md:px-4">
             <Button
-              variant="outline"
+              className="flex-1"
               disabled={basket.length === 0}
-              onClick={() => onGive(basket, true)}
+              onClick={() => onGive(basket, false)}
             >
-              Everyone online ({alsoOnline})
+              Give to {recipient}
             </Button>
-          )}
-        </div>
+            {alsoOnline > 1 && (
+              <Button
+                variant="outline"
+                disabled={basket.length === 0}
+                onClick={() => onGive(basket, true)}
+              >
+                Everyone online ({alsoOnline})
+              </Button>
+            )}
+          </div>
+        )}
       </SheetContent>
     </Sheet>
   );

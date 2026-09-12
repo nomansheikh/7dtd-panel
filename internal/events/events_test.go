@@ -392,3 +392,41 @@ func TestConcurrentPublishAndSubscribe(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+// The identity on a chat line is what lets anything answer it, and it was
+// being parsed and then dropped.
+func TestChatCarriesWhoSpoke(t *testing.T) {
+	got := classify(
+		"Chat (from 'Steam_76561198803325430', entity id '173', to 'Global'): 'nullish': hello",
+	)
+
+	if got.Kind != KindChat {
+		t.Fatalf("kind = %q", got.Kind)
+	}
+	if got.PlatformID != "Steam_76561198803325430" {
+		t.Errorf("platform id = %q", got.PlatformID)
+	}
+	if got.EntityID == nil || *got.EntityID != 173 {
+		t.Errorf("entity id = %v, want 173", got.EntityID)
+	}
+	if got.Text != "hello" {
+		t.Errorf("text = %q", got.Text)
+	}
+}
+
+// The server's own broadcasts come back as chat with entity id -1. Anything
+// reacting to chat has to be able to tell them apart, or it answers itself.
+// Captured from a live server after running `say`.
+func TestServerBroadcastIsMarkedAsNotAPlayer(t *testing.T) {
+	got := classify("Chat (from '-non-player-', entity id '-1', to 'Global'): panel broadcast check")
+
+	if got.Kind != KindChat {
+		t.Fatalf("kind = %q", got.Kind)
+	}
+	if got.EntityID == nil || *got.EntityID != -1 {
+		t.Fatalf("entity id = %v, want -1", got.EntityID)
+	}
+	if got.PlatformID != "-non-player-" {
+		t.Errorf("platform id = %q", got.PlatformID)
+	}
+}

@@ -20,6 +20,7 @@ import (
 
 	"github.com/nomansheikh/7dtd-panel/internal/api"
 	"github.com/nomansheikh/7dtd-panel/internal/auth"
+	"github.com/nomansheikh/7dtd-panel/internal/chat"
 	"github.com/nomansheikh/7dtd-panel/internal/config"
 	"github.com/nomansheikh/7dtd-panel/internal/httpx"
 	"github.com/nomansheikh/7dtd-panel/internal/servers"
@@ -109,6 +110,26 @@ func run() error {
 		Logger:   log.With("component", "api"),
 		Version:  version,
 	})
+
+	// One chat bot per server, sharing that server's event hub and client.
+	//
+	// Every command it answers is off until an operator turns it on, so this
+	// costs one idle goroutine per server on a panel nobody has configured.
+	for _, srv := range registry.All() {
+		bot := chat.New(chat.Options{
+			Server:   srv.ID,
+			Feed:     srv.Events,
+			Client:   srv.Client,
+			Poller:   srv.Poller,
+			Store:    db,
+			Announce: srv.Events,
+			Logger:   log.With("component", "chat", "server", srv.ID),
+			// The same switch the console page honours. A command an admin
+			// wrote runs under it too.
+			AllowDestructive: cfg.Panel.AllowDestructive,
+		})
+		go bot.Run(ctx)
+	}
 
 	// The poller and the session sweeper run for the life of the process and
 	// stop when ctx is cancelled.
