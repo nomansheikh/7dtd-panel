@@ -1,78 +1,77 @@
 name: Release
 
-# Releases are driven by the commit messages, not by remembering to tag.
-#
-# release-please reads the conventional commits since the last release, works
-# out the next version, and keeps a pull request open that bumps the changelog.
-# Merging that PR is the act of releasing: it tags, it writes the GitHub
-# release, and the image is built from the same job.
-#
-# The image build lives here rather than in a workflow triggered by the tag,
-# because a tag pushed with GITHUB_TOKEN deliberately does not trigger other
-# workflows. Split across two files, nothing would ever have been published.
+# You tag, this builds. Nothing here decides a version or cuts a release on
+# its own — pushing the tag is the deliberate act, and everything below is
+# just the work that follows it.
 on:
   push:
-    branches: [main]
+    tags: ["v*"]
 
 permissions:
   contents: write
-  pull-requests: write
   packages: write
 
-concurrency:
-  group: release
-  cancel-in-progress: false
-
 jobs:
-  release:
-    name: Release
+  image:
+    name: Image
     runs-on: ubuntu-latest
     steps:
-      - uses: googleapis/release-please-action@v4
-        id: release
-        with:
-          config-file: release-please-config.json
-          manifest-file: .release-please-manifest.json
-
-      # Everything below runs only on the push that merged a release PR.
       - uses: actions/checkout@v5
-        if: ${{ steps.release.outputs.release_created }}
+        with:
+          fetch-depth: 0
 
       # arm64 matters here: plenty of these servers run on a Pi or an ARM VPS,
       # and emulating the build is far cheaper than asking them to compile it.
       - uses: docker/setup-qemu-action@v3
-        if: ${{ steps.release.outputs.release_created }}
       - uses: docker/setup-buildx-action@v3
-        if: ${{ steps.release.outputs.release_created }}
 
       - uses: docker/login-action@v3
-        if: ${{ steps.release.outputs.release_created }}
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - id: meta
-        if: ${{ steps.release.outputs.release_created }}
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository }}
           # latest=auto moves :latest to the highest release and leaves it alone
-          # for a prerelease, so a release candidate can be published without
+          # for a prerelease, so v0.1.0-rc.1 can be published and tested without
           # becoming what everybody following the README pulls.
+          #
+          # The obvious-looking `enable={{is_default_branch}}` does not work
+          # here: this only runs on a tag, and a tag ref is never the default
+          # branch, so :latest would never have been published at all.
           flavor: latest=auto
           tags: |
-            type=semver,pattern={{version}},value=${{ steps.release.outputs.tag_name }}
-            type=semver,pattern={{major}}.{{minor}},value=${{ steps.release.outputs.tag_name }}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
 
       - uses: docker/build-push-action@v6
-        if: ${{ steps.release.outputs.release_created }}
         with:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: VERSION=${{ steps.release.outputs.tag_name }}
+          build-args: VERSION=${{ github.ref_name }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # The release notes come from CHANGELOG.md, which you wrote before
+      # tagging. A prerelease tag is marked as one, which is what keeps it out
+      # of "latest release" on the repository page.
+      - name: Publish the GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          notes=$(awk -v tag="${TAG#v}" '
+            $0 ~ "^## \\[?" tag {found=1; next}
+            found && /^## / {exit}
+            found {print}
+          ' CHANGELOG.md)
+          [ -z "$notes" ] && notes="See CHANGELOG.md."
+          prerelease=""
+          case "$TAG" in *-*) prerelease="--prerelease" ;; esac
+          gh release create "$TAG" --title "$TAG" --notes "$notes" $prerelease
