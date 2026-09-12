@@ -3,6 +3,11 @@
 A self-hostable web admin panel for **7 Days to Die** dedicated servers.
 Go backend, React frontend, one binary, one container.
 
+> **Early days.** This is pre-1.0 and the version number means it: things
+> may move between releases. It is run daily against a live server, but it
+> has not been through many hands yet. See [what is not yet
+> proven](#what-is-not-yet-proven).
+
 The browser never talks to the game server. The API token lives only in the
 panel and every game call is proxied, so nothing that reaches a browser tab
 can be replayed against your world.
@@ -102,6 +107,22 @@ in the UI — this is the way to do it.
 
 For several game servers, see the commented section in
 [`.env.example`](.env.example).
+
+## What is not yet proven
+
+Everything here works against the server it was built on. These parts have
+not been exercised anywhere else, and are the most likely to bite:
+
+- **Chat commands answering a live player.** Every layer is tested and the
+  log formats are pinned to real output, but the loop of somebody typing
+  `!day` in game and getting a reply has not been run end to end.
+- **Most automation triggers.** The daily one has fired for real. The blood
+  moon, uptime, join, leave, death and empty triggers are covered by tests
+  rather than by having happened.
+- **A server whose token is wrong still shows as online.** The panel's
+  health check uses an endpoint that needs no credentials, so a bad token
+  only surfaces when something tries to write. The connection test on the
+  setup page catches it there; the dashboard does not.
 
 ## Things worth knowing
 

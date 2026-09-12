@@ -33,10 +33,19 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository }}
+          # latest=auto moves :latest to the highest release tag and leaves it
+          # alone for a prerelease, which is what makes v0.1.0-alpha.1 safe to
+          # publish: it goes to the registry without becoming what everybody
+          # running the compose file from the README pulls tomorrow.
+          #
+          # The previous `enable={{is_default_branch}}` never fired at all. This
+          # workflow only runs on a tag, and a tag ref is not the default
+          # branch, so :latest would never have been published — while the
+          # quick start in the README pulls exactly that.
+          flavor: latest=auto
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable={{is_default_branch}}
 
       - uses: docker/build-push-action@v6
         with:
