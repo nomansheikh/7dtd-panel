@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { countMatches, matches, sectionsWithMatches } from "@/lib/settings-search";
 import { useSettings, useUpdateSetting } from "@/hooks/use-settings";
 import { useServerId } from "@/hooks/use-servers";
 import { api, ApiError, type ActionResult, type Setting, type SettingsSection } from "@/lib/api";
@@ -24,6 +25,10 @@ export function SettingsPage() {
   const { data, isLoading, error } = useSettings();
   const [query, setQuery] = useState("");
   const [changedOnly, setChangedOnly] = useState(false);
+  const needle = query.trim().toLowerCase();
+  // Controlled, so that "found it in server settings" can actually take you
+  // there rather than telling you to go yourself.
+  const [tab, setTab] = useState<string | null>(null);
 
   if (isLoading) {
     return (
@@ -45,7 +50,8 @@ export function SettingsPage() {
 
   return (
     <Tabs
-      defaultValue={data.sections[0]?.id ?? "world"}
+      value={tab ?? data.sections[0]?.id ?? "world"}
+      onValueChange={setTab}
       className="flex h-full min-h-0 flex-col gap-0"
     >
       {/*
@@ -62,7 +68,21 @@ export function SettingsPage() {
               className="h-7 gap-1.5 rounded-none border-0 px-3 data-[state=active]:bg-accent"
             >
               <span className="stencil">{section.title}</span>
-              <span className="readout text-xs text-bone-faint">{section.total}</span>
+              {/*
+                While searching this counts matches rather than the section's
+                size: the whole problem was not being able to tell which tab
+                the thing you typed actually lives in.
+              */}
+              <span
+                className={cn(
+                  "readout text-xs",
+                  needle && countMatches(section, needle, changedOnly) > 0
+                    ? "text-ember"
+                    : "text-bone-faint",
+                )}
+              >
+                {needle ? countMatches(section, needle, changedOnly) : section.total}
+              </span>
             </TabsTrigger>
           ))}
           {/* Not a preferences section: these are console commands rather than
@@ -91,7 +111,13 @@ export function SettingsPage() {
 
       {data.sections.map((section) => (
         <TabsContent key={section.id} value={section.id} className="min-h-0 flex-1 overflow-hidden">
-          <Section section={section} query={query} changedOnly={changedOnly} />
+          <Section
+            section={section}
+            query={query}
+            changedOnly={changedOnly}
+            elsewhere={sectionsWithMatches(data.sections, needle, changedOnly, section.id)}
+            onGo={setTab}
+          />
         </TabsContent>
       ))}
 
@@ -123,10 +149,16 @@ function Section({
   section,
   query,
   changedOnly,
+  elsewhere,
+  onGo,
 }: {
   section: SettingsSection;
   query: string;
   changedOnly: boolean;
+  /** Sections that do have matches, so an empty one can point at them. */
+  elsewhere: SettingsSection[];
+  /** Switches tabs, so the pointer is a link rather than an instruction. */
+  onGo: (sectionId: string) => void;
 }) {
   const [active, setActive] = useState<string | null>(null);
   const searching = query.trim() !== "";
@@ -136,14 +168,7 @@ function Section({
     return section.groups
       .map((group) => ({
         ...group,
-        settings: group.settings.filter((setting) => {
-          if (changedOnly && !setting.changed) return false;
-          if (!needle) return true;
-          return (
-            setting.label.toLowerCase().includes(needle) ||
-            setting.name.toLowerCase().includes(needle)
-          );
-        }),
+        settings: group.settings.filter((setting) => matches(setting, needle, changedOnly)),
       }))
       .filter((group) => group.settings.length > 0);
   }, [section, query, changedOnly]);
@@ -207,7 +232,31 @@ function Section({
         )}
 
         {shown.length === 0 && (
-          <p className="p-8 text-center text-sm text-bone-faint">Nothing here matches.</p>
+          <div className="p-8 text-center">
+            <p className="text-sm text-bone-faint">Nothing in here matches.</p>
+            {/*
+              The whole bug, in one sentence. "Nothing here matches" was a lie
+              when the setting sat one tab over, and it ended the search.
+            */}
+            {elsewhere.length > 0 && (
+              <p className="mt-2 text-xs text-bone-dim">
+                Found it in{" "}
+                {elsewhere.map((other, i) => (
+                  <span key={other.id}>
+                    {i > 0 && (i === elsewhere.length - 1 ? " and " : ", ")}
+                    <button
+                      type="button"
+                      className="text-ember underline-offset-2 hover:underline"
+                      onClick={() => onGo(other.id)}
+                    >
+                      {other.title.toLowerCase()}
+                    </button>
+                  </span>
+                ))}
+                .
+              </p>
+            )}
+          </div>
         )}
 
         {shown.map((group) => (
