@@ -175,6 +175,11 @@ const maxCooldownSeconds = 7 * 24 * 60 * 60
 // be mistaken for a second console argument.
 var commandName = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,23}$`)
 
+// validateLine is the check both a custom chat command and a task put their
+// lines through: single line, no nulls, nothing that smuggles in a second
+// command. The same one the console page runs.
+func validateLine(line string) error { return console.Validate(line) }
+
 // maxCommandLines bounds one custom command. Long enough for a starter package
 // that hands over a dozen things, short enough that one chat message cannot
 // become an unbounded run of console commands.
@@ -255,7 +260,7 @@ func (s *Server) handleSaveChatCommand(w http.ResponseWriter, r *http.Request) {
 			// made it, rather than in front of the player who triggered it.
 			// This is the same check the console page runs: single line, no
 			// nulls, nothing that smuggles in a second command.
-			if err := console.Validate(line); err != nil {
+			if err := validateLine(line); err != nil {
 				httpx.WriteError(w, http.StatusBadRequest, err.Error(), "INVALID_COMMAND")
 				return
 			}

@@ -20,6 +20,7 @@ import (
 
 	"github.com/nomansheikh/7dtd-panel/internal/api"
 	"github.com/nomansheikh/7dtd-panel/internal/auth"
+	"github.com/nomansheikh/7dtd-panel/internal/automation"
 	"github.com/nomansheikh/7dtd-panel/internal/chat"
 	"github.com/nomansheikh/7dtd-panel/internal/config"
 	"github.com/nomansheikh/7dtd-panel/internal/httpx"
@@ -129,6 +130,18 @@ func run() error {
 			AllowDestructive: cfg.Panel.AllowDestructive,
 		})
 		go bot.Run(ctx)
+
+		// And the scheduler, which shares the same hub, client and switch.
+		runner := automation.New(automation.Options{
+			Server:           srv.ID,
+			Feed:             srv.Events,
+			Client:           srv.Client,
+			Poller:           srv.Poller,
+			Store:            db,
+			Logger:           log.With("component", "automation", "server", srv.ID),
+			AllowDestructive: cfg.Panel.AllowDestructive,
+		})
+		go runner.Run(ctx)
 	}
 
 	// The poller and the session sweeper run for the life of the process and
@@ -289,10 +302,17 @@ func pruneHistory(ctx context.Context, db *store.Store, log *slog.Logger) {
 			n, err := db.PruneCommandHistory(ctx, historyKeep)
 			if err != nil {
 				log.Warn("pruning command history failed", "error", err)
+			} else if n > 0 {
+				log.Debug("pruned command history", "removed", n)
+			}
+
+			runs, err := db.PruneTaskRuns(ctx, historyKeep)
+			if err != nil {
+				log.Warn("pruning task history failed", "error", err)
 				continue
 			}
-			if n > 0 {
-				log.Debug("pruned command history", "removed", n)
+			if runs > 0 {
+				log.Debug("pruned task history", "removed", runs)
 			}
 		}
 	}
