@@ -38,6 +38,35 @@ can be replayed against your world.
 
 Several game servers at once, each fully separate.
 
+## What it looks like
+
+The overview: the day at the size the day deserves, the blood moon
+countdown, server load, who is on, and the live feed down the side.
+
+![The overview page](docs/screenshots/overview.png)
+
+The map is the game's own tiles, proxied through the panel, with players,
+land claims, zombies and animals drawn over them. Right-click anywhere to
+teleport somebody there or spawn something.
+
+![The live map](docs/screenshots/map.png)
+
+The console is the server's own command list — with its own help text —
+plus completion, history and the time each command took.
+
+![The console](docs/screenshots/console.png)
+
+Events are the raw log with chat, joins and problems picked out of it, and
+a box to answer from.
+
+![The event feed](docs/screenshots/events.png)
+
+Settings are all 287 game preferences in the game's own words, saying which
+are read-only and which have been changed from the default.
+
+![The settings page](docs/screenshots/settings.png)
+
+
 ## Getting it running
 
 You need a 7 Days to Die dedicated server with the **Allocs webinterface**
@@ -85,11 +114,11 @@ Environment variables only. There is no config file to mount.
 
 | Variable | Default | What it is |
 | --- | --- | --- |
-| `SDTD_HOST` | *required* | Where the panel reaches the game server |
+| `SDTD_HOST` | — | Where the panel reaches the game server |
 | `SDTD_API_PORT` | `8080` | The game server's web API port |
 | `SDTD_API_SCHEME` | `http` | `https` only if that API is behind TLS |
-| `SDTD_API_TOKEN_NAME` | *required* | The name from `webtokens add` |
-| `SDTD_API_TOKEN_SECRET` | *required* | The secret from `webtokens add` |
+| `SDTD_API_TOKEN_NAME` | — | The name from `webtokens add` |
+| `SDTD_API_TOKEN_SECRET` | — | The secret from `webtokens add` |
 | `PANEL_ADMIN_USERNAME` | `admin` | Your panel login |
 | `PANEL_ADMIN_PASSWORD` | *required* | Reconciled on every boot — see below |
 | `PANEL_PORT` | `8080` | Port the panel listens on |
@@ -97,9 +126,16 @@ Environment variables only. There is no config file to mount.
 | `PANEL_ALLOW_DESTRUCTIVE` | `true` | `false` refuses `shutdown`, `killall` and `worldchunkreset` everywhere |
 | `PANEL_TRUST_PROXY` | `false` | `true` only behind something that sets `X-Forwarded-For` |
 | `PANEL_POLL_INTERVAL` | `5s` | How often the game server is polled |
+| `PANEL_FAILURE_THRESHOLD` | `3` | Failed polls before a server is called offline |
 | `PANEL_SESSION_TTL` | `168h` | How long a login lasts |
 | `PANEL_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
 | `PANEL_LOG_FORMAT` | `json` | `json` or `text` |
+
+The `SDTD_` variables are optional as a set. Set none of them and the panel
+starts with nothing to manage and asks for a game server on first run, which
+is the shorter path if you would rather not paste a token into a compose
+file. Set any one of them and the rest become required, because a half-filled
+environment is a typo rather than a choice.
 
 `PANEL_ADMIN_PASSWORD` is reconciled into the database on every boot, so
 changing it and restarting resets the password. There is no password change
@@ -116,13 +152,10 @@ not been exercised anywhere else, and are the most likely to bite:
 - **Chat commands answering a live player.** Every layer is tested and the
   log formats are pinned to real output, but the loop of somebody typing
   `!day` in game and getting a reply has not been run end to end.
-- **Most automation triggers.** The daily one has fired for real. The blood
-  moon, uptime, join, leave, death and empty triggers are covered by tests
-  rather than by having happened.
-- **A server whose token is wrong still shows as online.** The panel's
-  health check uses an endpoint that needs no credentials, so a bad token
-  only surfaces when something tries to write. The connection test on the
-  setup page catches it there; the dashboard does not.
+- **Most automation triggers.** The repeat trigger has fired for real
+  against a live server. The daily, game-hour, blood moon, uptime, join,
+  leave, death and empty triggers are covered by tests rather than by having
+  happened.
 
 ## Things worth knowing
 
@@ -132,7 +165,9 @@ not been exercised anywhere else, and are the most likely to bite:
   panel. Put it behind TLS if you want copy to work from another machine.
 - **The panel is not a firewall.** Anyone who can reach it and sign in can
   do anything your token can. Put it on a private network or behind a
-  reverse proxy with TLS; do not expose it to the internet as-is.
+  reverse proxy with TLS; do not expose it to the internet as-is. What
+  counts as a vulnerability, and how to report one, is in
+  [SECURITY.md](SECURITY.md).
 - **A bind mount needs chowning; a named volume does not.** The panel runs
   as uid 65532, and `docker compose up` with the named volume above just
   works. If you swap it for a host path, `chown 65532:65532` that directory
@@ -140,9 +175,12 @@ not been exercised anywhere else, and are the most likely to bite:
 - **Back up `panel.db` before upgrading.** Migrations are forward-only by
   design, so an older image cannot make sense of a newer database. It is one
   file; see [releasing](docs/releasing.md#upgrading-and-why-downgrading-does-not-work).
-- **The map page does not exist yet.** `enablerendering` can only turn map
-  rendering *off*, so it needs a `serverconfig.xml` change and a restart to
-  enable, which the panel cannot do for you.
+- **The map needs a `serverconfig.xml` change the panel cannot make.**
+  `EnableMapRendering` is read at startup, so turning it on means editing the
+  config and restarting the game server; `setgamepref` at runtime changes the
+  reported value without starting the renderer. With it off, the map page says
+  so instead of showing an empty world. With it on, tiles only exist where
+  somebody has been — `visitmap` draws the rest.
 
 ## Versions
 

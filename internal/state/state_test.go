@@ -487,3 +487,87 @@ func TestSnapshotIsSafeForConcurrentReads(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+/*
+The health signal cannot see a wrong token: serverstats sits at permission
+level 2000 and answers without credentials, so the panel reported a healthy
+server right up until somebody tried to do something.
+*/
+func TestAServerThatRefusesTheTokenIsNotReportedHealthy(t *testing.T) {
+	client := &fakeClient{
+		logErr: &sdtd.APIError{Status: http.StatusUnauthorized, ErrorCode: "NOT_AUTHORIZED"},
+	}
+	p := newTestPoller(t, client, 3)
+	p.Tick(t.Context())
+
+	snap := p.Snapshot()
+	if snap.Status != StatusUnauthorized {
+		t.Fatalf("status = %q, want unauthorized — serverstats answered, so the "+
+			"panel would otherwise call this online", snap.Status)
+	}
+	if !snap.TokenRefused {
+		t.Error("want the refusal recorded on the snapshot")
+	}
+}
+
+// A token that gets fixed has to be noticed, which means the check keeps
+// running while the panel is in the refused state.
+func TestARefusedTokenIsRecheckedAndRecovers(t *testing.T) {
+	client := &fakeClient{
+		logErr: &sdtd.APIError{Status: http.StatusForbidden, ErrorCode: "NOT_AUTHORIZED"},
+	}
+	p := newTestPoller(t, client, 3)
+	p.credentialsEvery = 0
+	p.Tick(t.Context())
+	if p.Snapshot().Status != StatusUnauthorized {
+		t.Fatalf("status = %q, want unauthorized", p.Snapshot().Status)
+	}
+
+	client.mu.Lock()
+	client.logErr = nil
+	client.mu.Unlock()
+
+	p.Tick(t.Context())
+	if got := p.Snapshot().Status; got != StatusOnline {
+		t.Fatalf("status = %q after the token started working, want online", got)
+	}
+}
+
+// The slower polls all need the token, so they are not worth attempting.
+func TestNothingElseIsPolledWhileTheTokenIsRefused(t *testing.T) {
+	client := &fakeClient{
+		logErr: &sdtd.APIError{Status: http.StatusUnauthorized, ErrorCode: "NOT_AUTHORIZED"},
+	}
+	p := newTestPoller(t, client, 3)
+	p.Tick(t.Context())
+
+	client.mu.Lock()
+	defer client.mu.Unlock()
+	if client.infoCalls != 0 || client.bloodmoonCalls != 0 {
+		t.Errorf("asked for serverinfo %d times and bloodmoon %d while the token "+
+			"was refused, want none", client.infoCalls, client.bloodmoonCalls)
+	}
+}
+
+/*
+The credential check runs once a minute but the stats poll runs every tick, and
+stats answer without credentials. A refusal has to survive the ticks in between
+or the status light flaps between online and unauthorized.
+*/
+func TestARefusalSurvivesTheTicksBetweenCredentialChecks(t *testing.T) {
+	client := &fakeClient{
+		logErr: &sdtd.APIError{Status: http.StatusUnauthorized, ErrorCode: "NOT_AUTHORIZED"},
+	}
+	p := newTestPoller(t, client, 3)
+	p.Tick(t.Context())
+
+	for i := range 5 {
+		p.Tick(t.Context())
+		if got := p.Snapshot().Status; got != StatusUnauthorized {
+			t.Fatalf("tick %d: status = %q, want unauthorized", i+2, got)
+		}
+	}
+	if n := client.logCalls; n != 1 {
+		t.Errorf("checked credentials %d times across six ticks, want 1", n)
+	}
+}

@@ -127,19 +127,23 @@ func (r *Runner) Tick(ctx context.Context) {
 			}
 			continue
 		}
-		if !what.Fire {
+		if !what.Fire && !what.StartClock {
 			continue
 		}
 
-		// The claim decides. Two ticks overlapping, or two panels on one
-		// database, must not both run the same restart.
+		/*
+			The claim decides. Two ticks overlapping, or two panels on one
+			database, must not both run the same restart. It is also what stamps
+			the starting point of an interval that has never run, which is why a
+			StartClock decision goes through it and then stops.
+		*/
 		won, err := r.opts.Store.ClaimTask(ctx, r.opts.Server, task.Name, task, what.Key, now)
 		if err != nil {
 			r.log.Warn("could not claim a task",
 				"server", r.opts.Server, "task", task.Name, "error", err)
 			continue
 		}
-		if !won {
+		if !won || what.StartClock {
 			continue
 		}
 		r.fire(ctx, task, nil)

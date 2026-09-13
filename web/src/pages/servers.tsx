@@ -17,6 +17,7 @@ import { useDeleteServer } from "@/hooks/use-server-admin";
 import { useServers } from "@/hooks/use-servers";
 import { type ServerSummary } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { StatusDot } from "@/components/connection-status";
 
 /**
  * Every game server this panel manages.
@@ -56,15 +57,7 @@ export function ServersPage() {
               server.id === currentId && "bg-accent/20",
             )}
           >
-            <span
-              className={cn(
-                "size-1.5 shrink-0 rounded-full",
-                server.status === "online" && "bg-emerald-500",
-                server.status === "degraded" && "bg-ember",
-                (server.status === "offline" || server.status === "unknown") && "bg-bone-faint",
-              )}
-              aria-hidden
-            />
+            <StatusDot status={server.status} className="size-1.5" />
             <div className="min-w-0">
               <div className="flex flex-wrap items-baseline gap-2">
                 <span className="text-sm text-bone">{server.name}</span>

@@ -1,7 +1,13 @@
 /** Types for the panel itself: who is signed in, what servers exist, and what
  * the game server reports about its own configuration. */
 
-export type ServerStatus = "unknown" | "online" | "degraded" | "offline";
+export type ServerStatus =
+  | "unknown"
+  | "online"
+  | "degraded"
+  | "offline"
+  /* Reachable, but refusing the configured token. */
+  | "unauthorized";
 
 export interface User {
   username: string;

@@ -74,16 +74,23 @@ export function DashboardPage() {
   );
 }
 
-/** The game server is unreachable but the panel is fine. Say which. */
+/** The panel is fine and the game server is not. Say which, and how. */
 function Banner({ data }: { data: Dashboard }) {
-  if (data.status !== "offline") return null;
+  if (data.status !== "offline" && data.status !== "unauthorized") return null;
+  const refused = data.status === "unauthorized";
   return (
     <div className="shrink-0 border-b border-crimson/40 bg-crimson/12 px-4 py-3 md:px-6">
       <p className="flex flex-wrap items-center gap-x-2 text-sm">
         <AlertTriangle className="size-4 shrink-0 text-crimson-lit" />
-        <span className="font-medium">The game server is not responding.</span>
+        <span className="font-medium">
+          {refused
+            ? "The game server is refusing this panel's token."
+            : "The game server is not responding."}
+        </span>
         <span className="text-bone-dim">
-          Everything below is the last reading before it stopped answering.
+          {refused
+            ? "It is answering, but nothing that needs the token will work until the token is fixed."
+            : "Everything below is the last reading before it stopped answering."}
         </span>
       </p>
       {data.lastError && (

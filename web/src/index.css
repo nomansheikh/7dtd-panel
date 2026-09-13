@@ -146,6 +146,9 @@
   --status-online: oklch(0.655 0.115 148);
   --status-degraded: var(--ember);
   --status-offline: var(--crimson-lit);
+  /* A refused token wears the same alarm colour as offline: both mean the
+     panel cannot drive this server. The label carries the difference. */
+  --status-unauthorized: var(--crimson-lit);
   --status-unknown: var(--bone-faint);
 }
 
@@ -278,6 +281,7 @@
   --color-status-online: var(--status-online);
   --color-status-degraded: var(--status-degraded);
   --color-status-offline: var(--status-offline);
+  --color-status-unauthorized: var(--status-unauthorized);
   --color-status-unknown: var(--status-unknown);
 
   /* Big Shoulders is a tall condensed display face: it holds a four-digit

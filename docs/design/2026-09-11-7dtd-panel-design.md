@@ -454,6 +454,14 @@ unknown ──first success──▶ online ◀──success── degraded
 | `online` | last poll succeeded | fresh |
 | `degraded` | 1..N−1 consecutive failures | **last-known-good**, flagged `stale` with its age |
 | `offline` | ≥ N consecutive failures (default 3) | last-known-good, flagged `stale` |
+| `unauthorized` | reachable, but an authenticated call was refused | last-known-good, flagged `stale` |
+
+`unauthorized` exists because the health poll cannot see a bad token:
+`/api/serverstats` sits at permission level 2000 and answers with no
+credentials at all, so a panel holding the wrong secret reported a perfectly
+healthy server and only failed when somebody tried to do something. A separate
+minute-interval check asks for one line of the log — the cheapest call that
+needs permission — and a refusal sticks until that same check succeeds again.
 
 A single failed poll **never** empties the players list and **never**
 flips the badge to offline. Every snapshot carries `fetchedAt`; the API
