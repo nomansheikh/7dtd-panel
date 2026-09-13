@@ -4,6 +4,7 @@ import { powerApi } from "@/lib/api/power";
 import { playersApi } from "@/lib/api/players";
 import { worldApi } from "@/lib/api/world";
 import { panelApi } from "@/lib/api/panel";
+import { gameMapApi } from "@/lib/api/gamemap";
 
 /**
  * Typed client for the panel's own API.
@@ -22,9 +23,11 @@ export const api = {
   ...playersApi,
   ...accessApi,
   ...featuresApi,
+  ...gameMapApi,
 };
 
 export { ApiError } from "@/lib/api/request";
 export * from "@/lib/api/types-panel";
 export * from "@/lib/api/types-game";
 export * from "@/lib/api/types-panel-features";
+export * from "@/lib/api/types-map";

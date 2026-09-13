@@ -205,21 +205,52 @@ it.
 
 ### 1.7 Map
 
-`GET /api/map/config` → `{"enabled":false,"mapBlockSize":128,"maxZoom":4,
+`GET /api/map/config` → `{"enabled":true,"mapBlockSize":128,"maxZoom":4,
 "mapSize":{"x":6144,"y":255,"z":6144}}`
 
-Tiles live at `/map/{z}/{x}/{y}.png` (the official SPA requests
-`../../map/{z}/{x}/{y}.png?t={time}`). On the test server they 404,
-because rendering is off. The in-game `enablerendering` command cannot
-turn it on — its own help text says so:
+Tiles live at `/map/{z}/{x}/{y}.png`, outside `/api` and absent from the
+OpenAPI spec — the only documented map endpoint is `/map/config`. The path
+and the projection were read from two independent copies of the game's own
+map client and confirmed against a live server:
+
+```js
+project:   (lat,lng) => Point(lat / 2**maxZoom, lng / 2**maxZoom)
+scale:     z => 2**z
+transform: Transformation(1, 0, -1, 0)
+getTileUrl: coords.y = -coords.y - 1      // y axis flipped
+```
+
+At `z == maxZoom` one world block is one pixel, so a 6144 world is 48×48
+tiles at full zoom and about 3,000 across the whole pyramid. Leaflet's lat
+is the world's x, its lng the world's z.
+
+**Rendering is a startup setting.** `EnableMapRendering` must be `true` in
+the config the server is actually launched with before it starts. Setting
+it at runtime is inert twice over: the console answers "set to True" and
+`getgamepref` still reports `False`, while `rendermap` answers
+`Renderer not enabled` and `visitmap` writes no tiles. `enablerendering`
+says so itself:
 
 > NOTE: This command can only turn the renderer off, it can not turn it
 > on if it is not enabled in the serverconfig!
 
-`EnableMapRendering` is confirmed present in `/api/gameprefs` as a bool,
-currently `False`, default `False`. It must be set in `serverconfig.xml`
-before server start. Tiles only exist for terrain players have
-explored; `RebuildMap` re-renders already-explored terrain.
+Under LinuxGSM the launched config is `sdtdserver.xml`, not
+`serverconfig.xml`; patching only the latter silently does nothing.
+
+**404 versus a blank tile.** With rendering off, an undrawn square answers
+404. With rendering **on** it answers 200 carrying a small placeholder —
+367 bytes on the server this was built against, byte-identical for every
+coordinate including ones no world contains. Taking those at face value
+makes an untouched world look fully drawn, so the panel probes one
+impossible coordinate per server and treats anything matching as undrawn.
+
+Tiles only exist where chunks have been loaded with rendering on: the
+renderer is a side effect of chunk loading, not a separate pass, so there
+is no complete image to serve. `visitmap <x1> <z1> <x2> <z2>` force-loads a
+rectangle; `visitmap full` does the whole world, which is 148,225 chunks at
+roughly 100/sec on a 6k map. The game sends no `ETag`, no `Last-Modified`
+and no `Cache-Control` on tiles, and its own client copes by appending a
+timestamp to every URL — so the panel owns caching entirely.
 
 ### 1.8 Sizes and costs
 
@@ -753,7 +784,7 @@ destructive tier. Real errors through `sonner`.
 | **`serverconfig.xml` editor** | No endpoint; no shared filesystem; `PUT /api/gameprefs/{name}` → 405 `Unsupported` | gameprefs viewer + `setgamepref` writes, labelled runtime-only and lost on restart |
 | **Trigger horde night** via `/api/bloodmoon` | That endpoint is GET-only and there is no `bloodmoon` command | `settime` to the next blood-moon day, plus `spawnwandering`/`spawnscouts`, with the mechanism shown in the UI |
 | Item **icons** | `/itemicons/…` 404s on the test server | text labels |
-| Interactive **map** | `EnableMapRendering` is `False` and `enablerendering` cannot turn it on | blocked until the operator sets it in `serverconfig.xml` and restarts; honest empty state meanwhile |
+| Interactive **map** | rendering is a startup setting the panel cannot change | built; explains what to set and where when the renderer is off, and distinguishes "not drawn yet" from "drawn and empty" |
 
 ### Unverified
 

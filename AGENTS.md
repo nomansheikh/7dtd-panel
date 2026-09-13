@@ -70,6 +70,11 @@ This project's credibility rests on its claims being true.
 - **Say what you could not verify.** Every design document here marks its
   unverified claims. Do the same in PR descriptions. "I could not prove X"
   is worth more than silence.
+- **Drive the real interface.** Do the thing the way an operator would —
+  through the panel's own pages, not `curl` and not the console page as a
+  shortcut. Reach for the API only to confirm what the UI did, or to probe
+  the game for something the panel does not surface yet. If a task is
+  awkward through the UI, that awkwardness is the finding.
 - **Screenshot what you changed.** A frontend change is not done because it
   compiles.
 
@@ -82,6 +87,11 @@ This project's credibility rests on its claims being true.
 - **Comments explain why, not what.** The diff already shows what. A
   comment earns its place by recording a decision, a constraint the code
   cannot state, or a thing that was tried and did not work.
+- **Comment sparingly.** A comment above every block buries the few that
+  matter. Before committing, reread each one and ask what a reader loses
+  if it goes; if the answer is nothing, delete it.
+- **Anything over one line is a block comment** — `/* … */`, not a stack
+  of `//`. Go and TypeScript alike.
 - **Tests pin behaviour that matters**, and their names say what they
   protect: `TestTheBotIgnoresItsOwnServersBroadcasts`, not `TestParse2`.
   Where a format came off a live server, quote it in the test.

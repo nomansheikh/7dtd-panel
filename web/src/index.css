@@ -490,3 +490,20 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/*
+While a page is filling the screen, the app's own chrome steps out of the way.
+Hidden rather than unmounted, so nothing below it remounts and loses its state.
+*/
+html.immersive [data-slot="sidebar"],
+html.immersive [data-slot="sidebar-rail"],
+html.immersive body > * header {
+  display: none;
+}
+
+/* The work area is normally capped and centred. Filling the screen means
+   filling it, so the cap comes off on a monitor wider than the shell. */
+html.immersive [data-slot="sidebar-wrapper"] {
+  --shell-max: 100vw;
+  max-width: none;
+}

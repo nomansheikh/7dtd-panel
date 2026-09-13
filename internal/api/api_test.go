@@ -15,6 +15,7 @@ import (
 	"github.com/nomansheikh/7dtd-panel/internal/auth"
 	"github.com/nomansheikh/7dtd-panel/internal/config"
 	"github.com/nomansheikh/7dtd-panel/internal/events"
+	"github.com/nomansheikh/7dtd-panel/internal/gamemap"
 	"github.com/nomansheikh/7dtd-panel/internal/power"
 	"github.com/nomansheikh/7dtd-panel/internal/servers"
 	"github.com/nomansheikh/7dtd-panel/internal/state"
@@ -97,6 +98,7 @@ func newHarness(t *testing.T, snap state.Snapshot) *harness {
 			Server: testServerID, Client: game, Poller: fakeState{snap: snap},
 			AllowDestructive: true,
 		}),
+		Map: gamemap.New(gamemap.Options{Source: game}),
 	}
 
 	s := NewServer(Deps{
