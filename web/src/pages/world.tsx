@@ -288,8 +288,8 @@ function TimeTab({ serverId, onRun }: { serverId: string; onRun: Run }) {
 
   return (
     <div className="p-4 md:p-8">
-      <div className="flex flex-wrap items-start gap-x-12 gap-y-8">
-        <div className="shrink-0 space-y-3">
+      <div className="grid gap-x-10 gap-y-8 lg:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]">
+        <div className="min-w-0 space-y-3">
           <DayDial
             day={day}
             hour={hour}
@@ -306,14 +306,15 @@ function TimeTab({ serverId, onRun }: { serverId: string; onRun: Run }) {
             is where someone's eye already is when they wonder whether the sun
             is a picture or a control.
           */}
-          <p className="w-[360px] max-w-full text-center text-xs text-bone-dim">
+          <p className="w-full text-center text-xs text-bone-dim">
             Drag the sun round the ring to change the time.
           </p>
         </div>
 
-        {/* A real minimum so it wraps under the dial rather than shrinking to
-            a column one word wide. */}
-        <div className="min-w-[18rem] flex-1 space-y-7">
+        {/* Its own line until there is room for two columns. flex-wrap alone
+            will not do it: an item that may shrink to nothing never wraps, it
+            just squeezes, and a pixel floor would overflow a narrow phone. */}
+        <div className="min-w-0 space-y-7">
           <p className="flex items-center gap-2">
             {isNight ? (
               <Moon className="size-4 text-crimson-lit" />
@@ -789,8 +790,8 @@ function WeatherTab({ serverId, onRun, onAsk }: { serverId: string; onRun: Run; 
 
   return (
     <div className="p-4 md:p-8">
-      <div className="flex flex-wrap items-start gap-x-10 gap-y-8">
-        <div className="w-[480px] max-w-full shrink-0 space-y-3">
+      <div className="grid gap-x-10 gap-y-8 lg:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]">
+        <div className="min-w-0 space-y-3">
           <div className="relative border border-border">
             <Sky
               conditions={sky}
@@ -1091,8 +1092,8 @@ function SpawnTab({ serverId, onRun, onAsk }: { serverId: string; onRun: Run; on
 
   return (
     <div className="p-4 md:p-8">
-      <div className="flex flex-wrap items-start gap-x-10 gap-y-8">
-        <div className="w-[24rem] max-w-full shrink-0 space-y-3">
+      <div className="grid gap-x-10 gap-y-8 lg:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]">
+        <div className="min-w-0 space-y-3">
           <div className="flex items-baseline justify-between">
             <span className="stencil">What</span>
             <span className="readout text-xs text-bone-faint">
@@ -1131,7 +1132,7 @@ function SpawnTab({ serverId, onRun, onAsk }: { serverId: string; onRun: Run; on
           {isLoading ? (
             <Skeleton className="h-80 w-full rounded-none" />
           ) : (
-            <ul className="max-h-[22rem] overflow-y-auto border border-border">
+            <ul className="max-h-[clamp(16rem,50vh,28rem)] overflow-y-auto border border-border">
               {shown.length === 0 ? (
                 <li className="p-3 text-xs text-bone-faint">Nothing matches.</li>
               ) : (

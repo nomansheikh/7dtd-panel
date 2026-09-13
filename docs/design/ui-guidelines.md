@@ -94,6 +94,31 @@ screen.
 it is two columns, not a stack — see Chat and Automation: settings left,
 "what it looks like in game" right.
 
+### Nothing is a fixed number of pixels
+
+The same rule as type: no hardcoded dimension, at any width. A frozen
+`w-[360px]` is wrong on a phone *and* on a wide screen, where it leaves the
+column it sits in half empty.
+
+A two-column page is a grid, not a wrapping flex row:
+
+```tsx
+<div className="grid gap-x-10 gap-y-8 lg:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]">
+```
+
+- The track is a **maximum**, not a width — both columns are fluid under it.
+- `minmax(0, …)` on both tracks is what stops a long word or a wide child
+  blowing the column out.
+- The breakpoint decides when it stacks. `flex-wrap` cannot: an item that may
+  shrink to nothing never wraps, it just squeezes — which is how the world page
+  ended up one word wide. Reaching for a `min-w-[…]` to force the wrap only
+  moves the overflow to a narrower phone.
+
+Where a real ceiling is needed, make it follow the window:
+`max-h-[clamp(16rem,50vh,28rem)]`, not `max-h-[22rem]`.
+
+A hairline is allowed to be `w-[2px]`. Nothing else is.
+
 ## 5. Controls
 
 ### Pick the right one
@@ -201,5 +226,6 @@ Generated code and vendored `web/src/components/ui/*` are exempt.
 - [ ] Icon-only buttons have labels naming their target
 - [ ] Empty states teach; destructive things are named
 - [ ] Durations and enums read as words with the number beside them
-- [ ] Checked at a narrow width as well as wide
+- [ ] Checked at 320px, not just "narrow"
+- [ ] No hardcoded dimensions — grids and clamps, at every width
 - [ ] No file over 200 lines
