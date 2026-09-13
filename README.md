@@ -38,6 +38,35 @@ can be replayed against your world.
 
 Several game servers at once, each fully separate.
 
+## What it looks like
+
+The overview: the day at the size the day deserves, the blood moon
+countdown, server load, who is on, and the live feed down the side.
+
+![The overview page](docs/screenshots/overview.png)
+
+The map is the game's own tiles, proxied through the panel, with players,
+land claims, zombies and animals drawn over them. Right-click anywhere to
+teleport somebody there or spawn something.
+
+![The live map](docs/screenshots/map.png)
+
+The console is the server's own command list — with its own help text —
+plus completion, history and the time each command took.
+
+![The console](docs/screenshots/console.png)
+
+Events are the raw log with chat, joins and problems picked out of it, and
+a box to answer from.
+
+![The event feed](docs/screenshots/events.png)
+
+Settings are all 287 game preferences in the game's own words, saying which
+are read-only and which have been changed from the default.
+
+![The settings page](docs/screenshots/settings.png)
+
+
 ## Getting it running
 
 You need a 7 Days to Die dedicated server with the **Allocs webinterface**
