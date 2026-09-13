@@ -500,3 +500,10 @@ html.immersive [data-slot="sidebar-rail"],
 html.immersive body > * header {
   display: none;
 }
+
+/* The work area is normally capped and centred. Filling the screen means
+   filling it, so the cap comes off on a monitor wider than the shell. */
+html.immersive [data-slot="sidebar-wrapper"] {
+  --shell-max: 100vw;
+  max-width: none;
+}
