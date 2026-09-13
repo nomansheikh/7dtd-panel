@@ -196,15 +196,17 @@ export function PlayersPage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="region-head shrink-0 gap-3">
-        <span className="stencil">
+      {/* Wraps rather than squashing: with no room the count was breaking into
+          a column of fragments down the left edge. */}
+      <div className="region-head shrink-0 flex-wrap gap-3">
+        <span className="stencil shrink-0">
           {online} online · {players.length} known
         </span>
         <Input
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           placeholder="Filter by name"
-          className="ml-auto h-7 max-w-56 text-xs"
+          className="order-last h-7 w-full text-xs sm:order-none sm:ml-auto sm:w-auto sm:max-w-56"
         />
         {/* Two things that are about everybody rather than about one row, so
             they sit in the header instead of in every player's menu. */}

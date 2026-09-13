@@ -283,6 +283,12 @@ function TopBar() {
 
   return (
     <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border px-4 md:px-6">
+      {/*
+        Below the sidebar's breakpoint it becomes an off-canvas sheet, and its
+        own trigger goes off screen with it — leaving no way to reach any other
+        page. This is the only way in on a phone.
+      */}
+      <SidebarTrigger className="-ml-1 shrink-0 text-bone-faint md:hidden" />
       <h1 className="font-display text-base leading-none font-bold tracking-[0.14em] uppercase">
         {title(pathname)}
       </h1>

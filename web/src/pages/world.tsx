@@ -311,7 +311,9 @@ function TimeTab({ serverId, onRun }: { serverId: string; onRun: Run }) {
           </p>
         </div>
 
-        <div className="min-w-0 flex-1 space-y-7">
+        {/* A real minimum so it wraps under the dial rather than shrinking to
+            a column one word wide. */}
+        <div className="min-w-[18rem] flex-1 space-y-7">
           <p className="flex items-center gap-2">
             {isNight ? (
               <Moon className="size-4 text-crimson-lit" />
