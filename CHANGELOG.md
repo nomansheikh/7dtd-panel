@@ -29,4 +29,19 @@ Versions are `0.MINOR.PATCH` while this is pre-1.0; see
 - Game servers are added, edited and switched from the panel, with a
   connection test that tells a wrong token apart from an unreachable host.
 - Several game servers at once, each fully separate.
+- A live map: the game's own tiles proxied through the panel, with players,
+  land claims, zombies and animals drawn over them. Right-click to teleport
+  somebody or spawn something. Tiles are cached and refreshed in place, so a
+  pan costs one round trip and a refresh does not blink.
+- Stopping a server, with countdown warnings and a save first, and a watch
+  afterwards that says whether it came back.
+- A layout that works on a phone, not only a desk.
 - A single multi-arch image, and a one-paste compose file.
+
+### Fixed
+
+- A game server refusing the panel's token is reported as such. The health
+  poll uses an endpoint that needs no credentials, so a wrong token used to
+  read as a healthy server until somebody tried to do something.
+- A task set to run every so many minutes now runs. It counted from its last
+  run, and nothing started the clock, so it stayed at zero and never came due.
