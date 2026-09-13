@@ -143,10 +143,18 @@ export function MapCanvas({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const buildPatch = useCallback(
+    (version: number, bounds: L.LatLngBounds) => tileLayer(tileTemplate, config, version, bounds),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [tileTemplate, config.tileSize, config.maxZoom],
+  );
+
   useTileRefresh({
     map,
     tiles,
+    players: (markers.players ?? []).map((p) => ({ x: p.x, z: p.z })),
     build: buildTiles,
+    buildPatch,
     everyMs: refreshMs,
     nonce: refreshNonce,
     onBusyChange: onRefreshingChange,

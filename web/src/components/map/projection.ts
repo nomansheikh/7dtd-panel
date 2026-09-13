@@ -31,7 +31,12 @@ export function worldBounds(worldSize: number): L.LatLngBounds {
 export const BLANK_TILE =
   "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 
-export function tileLayer(template: string, config: MapConfig, version = 0): L.TileLayer {
+export function tileLayer(
+  template: string,
+  config: MapConfig,
+  version = 0,
+  bounds?: L.LatLngBounds,
+): L.TileLayer {
   /* Leaflet fills any extra option into a matching {placeholder} in the
      template, which its own types do not describe. */
   const options = {
@@ -50,6 +55,8 @@ export function tileLayer(template: string, config: MapConfig, version = 0): L.T
     updateWhenZooming: false,
     keepBuffer: 2,
     className: "map-tiles",
+    /* A patch layer only covers the ground that can have changed. */
+    ...(bounds ? { bounds } : {}),
   } as L.TileLayerOptions;
 
   return L.tileLayer(template, options);
