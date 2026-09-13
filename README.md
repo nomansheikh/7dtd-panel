@@ -116,13 +116,10 @@ not been exercised anywhere else, and are the most likely to bite:
 - **Chat commands answering a live player.** Every layer is tested and the
   log formats are pinned to real output, but the loop of somebody typing
   `!day` in game and getting a reply has not been run end to end.
-- **Most automation triggers.** The daily one has fired for real. The blood
-  moon, uptime, join, leave, death and empty triggers are covered by tests
-  rather than by having happened.
-- **A server whose token is wrong still shows as online.** The panel's
-  health check uses an endpoint that needs no credentials, so a bad token
-  only surfaces when something tries to write. The connection test on the
-  setup page catches it there; the dashboard does not.
+- **Most automation triggers.** The repeat trigger has fired for real
+  against a live server. The daily, game-hour, blood moon, uptime, join,
+  leave, death and empty triggers are covered by tests rather than by having
+  happened.
 
 ## Things worth knowing
 
@@ -140,9 +137,12 @@ not been exercised anywhere else, and are the most likely to bite:
 - **Back up `panel.db` before upgrading.** Migrations are forward-only by
   design, so an older image cannot make sense of a newer database. It is one
   file; see [releasing](docs/releasing.md#upgrading-and-why-downgrading-does-not-work).
-- **The map page does not exist yet.** `enablerendering` can only turn map
-  rendering *off*, so it needs a `serverconfig.xml` change and a restart to
-  enable, which the panel cannot do for you.
+- **The map needs a `serverconfig.xml` change the panel cannot make.**
+  `EnableMapRendering` is read at startup, so turning it on means editing the
+  config and restarting the game server; `setgamepref` at runtime changes the
+  reported value without starting the renderer. With it off, the map page says
+  so instead of showing an empty world. With it on, tiles only exist where
+  somebody has been — `visitmap` draws the rest.
 
 ## Versions
 
