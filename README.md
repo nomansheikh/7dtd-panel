@@ -9,8 +9,7 @@ Go backend, React frontend, one binary, one container.
 
 > **Early days.** This is pre-1.0 and the version number means it: things
 > may move between releases. It is run daily against a live server, but it
-> has not been through many hands yet. See [known
-> limitations](#known-limitations).
+> has not been through many hands yet.
 
 The browser never talks to the game server. The API token lives only in the
 panel and every game call is proxied, so nothing that reaches a browser tab
@@ -178,19 +177,6 @@ in [SECURITY.md](SECURITY.md).
   reported value without starting the renderer. With it off, the map page says
   so instead of showing an empty world. With it on, tiles only exist where
   somebody has been — `visitmap` draws the rest.
-
-## Known limitations
-
-Everything here works against the server it was built on. These parts have
-not been exercised anywhere else, and are the most likely to bite:
-
-- **Chat commands answering a live player.** Every layer is tested and the
-  log formats are pinned to real output, but the loop of somebody typing
-  `!day` in game and getting a reply has not been run end to end.
-- **Most automation triggers.** The repeat trigger has fired for real
-  against a live server. The daily, game-hour, blood moon, uptime, join,
-  leave, death and empty triggers are covered by tests rather than by having
-  happened.
 
 ## Versioning
 
