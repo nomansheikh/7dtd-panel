@@ -26,7 +26,7 @@ export function DashboardPage() {
 
   if (isLoading && !data) {
     return (
-      <div className="grid h-full grid-cols-1 gap-px lg:grid-cols-[1fr_22rem]">
+      <div className="grid grid-cols-1 gap-px lg:h-full lg:grid-cols-[1fr_22rem]">
         <Skeleton className="h-full w-full rounded-none" />
         <Skeleton className="hidden h-full w-full rounded-none lg:block" />
       </div>
@@ -50,7 +50,7 @@ export function DashboardPage() {
   }
 
   return (
-    <div className="grid h-full min-h-0 grid-rows-[auto_1fr] overflow-y-auto lg:grid-cols-[1fr_22rem] lg:grid-rows-1 lg:overflow-hidden">
+    <div className="grid min-h-0 grid-rows-[auto_auto] lg:h-full lg:grid-cols-[1fr_22rem] lg:grid-rows-1 lg:overflow-hidden">
       <div className="flex min-h-0 min-w-0 flex-col lg:overflow-hidden">
         <Banner data={data} />
         <Clock data={data} />
@@ -153,7 +153,7 @@ function Countdown({
 
   if (bloodMoon.active) {
     return (
-      <div className="text-right">
+      <div className="text-left sm:text-right">
         <div className="stencil text-crimson-lit">Blood moon</div>
         <p className="figure animate-breathe mt-2 text-5xl text-crimson-lit">TONIGHT</p>
         <p className="mt-1.5 text-xs text-bone-dim">They are already coming.</p>
@@ -162,9 +162,9 @@ function Countdown({
   }
 
   return (
-    <div className="text-right">
+    <div className="text-left sm:text-right">
       <div className={cn("stencil", imminent && "text-crimson-lit")}>Blood moon</div>
-      <p className="mt-2 flex items-baseline justify-end gap-2">
+      <p className="mt-2 flex items-baseline justify-start gap-2 sm:justify-end">
         <span className={cn("figure text-5xl", imminent && "text-crimson-lit")}>{daysAway}</span>
         <span className="font-display text-sm font-semibold tracking-[0.14em] text-bone-dim uppercase">
           {daysAway === 1 ? "day" : "days"}
@@ -358,8 +358,11 @@ function PlayerRow({ player }: { player: Player }) {
         </>
       ) : (
         <>
-          <span className="stencil">{player.banned ? "Banned" : "Offline"}</span>
-          <span className="readout ml-auto text-xs text-bone-faint">
+          <span className="stencil shrink-0">{player.banned ? "Banned" : "Offline"}</span>
+          {/* Dropped first on a narrow row, as the online branch drops its
+              kills and health bar: the name and when they were last on are
+              what the row is for. */}
+          <span className="readout ml-auto hidden text-xs text-bone-faint sm:inline">
             {formatUptime(player.playTimeSeconds)} played
           </span>
           <span className="readout w-14 shrink-0 text-right text-xs text-bone-faint">

@@ -32,7 +32,7 @@ export function ServersPage() {
   const remove = useDeleteServer();
 
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto">
+    <div>
       <div className="region-head">
         <span className="stencil">Game servers</span>
         <span className="readout text-xs text-bone-faint">{servers.length}</span>

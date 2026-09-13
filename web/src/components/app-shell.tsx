@@ -132,7 +132,15 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="flex h-full w-full min-w-0 flex-col overflow-hidden">
           <TopBar />
           <CycleStrip />
-          <main className="min-h-0 flex-1 overflow-hidden">{children}</main>
+          {/*
+            Scrolls, so a page is not obliged to manage its own height. It used
+            to hide its overflow, which meant any page that only set padding —
+            world, chat, automation, settings — had its tail clipped and
+            unreachable: chat ran 81px past an 844px window with nothing on the
+            page able to scroll. Pages that do fill the height still use h-full
+            and scroll inside themselves.
+          */}
+          <main className="min-h-0 flex-1 overflow-y-auto">{children}</main>
         </div>
       </SidebarInset>
     </SidebarProvider>
