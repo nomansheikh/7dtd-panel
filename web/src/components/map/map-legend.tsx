@@ -52,18 +52,31 @@ interface MapLegendProps {
 }
 
 /** What is drawn on the map, and the switch for each. */
-export function MapLegend({ shown, counts, problems, onToggle }: MapLegendProps) {
+export function MapLegend({
+  shown,
+  counts,
+  problems,
+  onToggle,
+}: MapLegendProps) {
   return (
     <div className="region">
-      <div className="region-head">Layers</div>
+      <div className="region-head">
+        <span className="stencil">Layers</span>
+      </div>
       <ul>
         {LAYERS.map((layer) => {
           const on = shown.includes(layer.name);
           const problem = problems[layer.name];
           return (
-            <li key={layer.name} className="border-t border-ash-800 px-3 py-2 first:border-t-0">
+            <li
+              key={layer.name}
+              className="border-t border-border px-4 py-2 first:border-t-0"
+            >
               <div className="flex items-center gap-2">
-                <span className={cn("size-2 shrink-0", layer.swatch)} aria-hidden />
+                <span
+                  className={cn("size-2 shrink-0", layer.swatch)}
+                  aria-hidden
+                />
                 <span className="flex-1 text-sm">{layer.label}</span>
                 {on && !problem ? (
                   <span className="readout text-2xs text-bone-dim">

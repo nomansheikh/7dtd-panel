@@ -31,18 +31,13 @@ type marker struct {
 }
 
 /*
-handleMapMarkers returns everything overlaid on the map in one answer.
+One request rather than four: four separate polls would show players from one
+moment beside zombies from another. Only the layers being shown are asked for,
+so a map with the zombie layer off does not fetch hundreds of entries nobody
+has asked to see.
 
-One request rather than four, because the map redraws all its overlays
-together: four separate polls would trip over each other and show players from
-one moment beside zombies from another. The layers to include are named by the
-caller so a map with the zombie layer switched off does not make the panel ask
-the game server for zombies every few seconds — on a blood moon that list runs
-to hundreds of entries that nobody has asked to see.
-
-A layer that fails is reported as a failure for that layer alone. A game server
-that has stopped answering /api/hostile should not blank out the player
-positions the panel can still read perfectly well.
+A layer that fails is reported as a failure for that layer alone; a server that
+has stopped answering /api/hostile should not blank out the player positions.
 */
 func (s *Server) handleMapMarkers(w http.ResponseWriter, r *http.Request) {
 	wanted := requestedLayers(r.URL.Query().Get("layers"))

@@ -1,6 +1,5 @@
 /*
 Package gamemap caches the rendered map tiles a game server draws.
-
 Tiles are the only thing the panel proxies in bulk: one screenful of map is a
 few hundred separate images, and panning asks for a few hundred more. The game
 server sends no ETag, no Last-Modified and no Cache-Control on them, and its own
@@ -43,43 +42,29 @@ type Source interface {
 // Options configure a Cache.
 type Options struct {
 	Source Source
-	// Busy reports whether anybody is in the world. Tiles can only change
-	// while a player is loading chunks, so an empty server's map is frozen and
-	// may be trusted for much longer. Nil means always busy.
+	/* Whether anybody is in the world. A drawn tile will not be redrawn by an
+	empty server, so it can be trusted for longer. Nil means always busy. */
 	Busy func() bool
 	// MaxBytes caps the cache. Zero selects defaultMaxBytes.
 	MaxBytes int64
-	// BusyTTL and IdleTTL override how long a drawn tile is trusted. Zero
-	// selects the defaults.
+	/* Zero selects the defaults for all three. */
 	BusyTTL, IdleTTL time.Duration
-	// MissTTL overrides how long "never drawn" is trusted. Zero selects the
-	// default.
-	MissTTL time.Duration
-	Now     func() time.Time
+	MissTTL          time.Duration
+	Now              func() time.Time
 }
 
 const (
-	// defaultMaxBytes holds roughly six thousand tiles at the ten to fifteen
-	// kilobytes one usually weighs, which is a whole 6k world at full zoom.
+	/* About six thousand tiles at the 10-15 kB one usually weighs, which is a
+	whole 6k world at full zoom. */
 	defaultMaxBytes = 64 << 20
-	// defaultBusyTTL is short because a player exploring draws new ground as
-	// they go, and an operator watching them move wants to see it appear. It
-	// also has to be shorter than the map's own refresh interval, or the
-	// browser answers that refresh out of its own cache and nothing new is
-	// ever shown.
+	/* Must stay shorter than the map's refresh interval, or the browser
+	answers that refresh from its own cache and nothing new is shown. */
 	defaultBusyTTL = 10 * time.Second
-	// defaultIdleTTL is long because a tile that has been drawn will not be
-	// redrawn by an empty world. This is the case that matters: a panel left
-	// open on an idle server should cost nothing at all.
+	/* A panel left open on an idle server should cost nothing at all. */
 	defaultIdleTTL = 30 * time.Minute
-	// defaultMissTTL is short, and deliberately not subject to the idle rule.
-	//
-	// "Nobody is playing" does not mean the map cannot change: an admin can
-	// run visitmap and redraw the whole world with the server empty, which is
-	// exactly how an operator fills in a map for the first time. Holding a
-	// miss for half an hour after that leaves the map blank long after it has
-	// been drawn, and makes the page look broken. A miss is also the cheapest
-	// thing the game server answers, so re-asking often costs almost nothing.
+	/* Deliberately outside the idle rule: an admin can run visitmap and redraw
+	the world with nobody online, which is how a map is first filled in.
+	Holding a miss through that leaves the page looking broken. */
 	defaultMissTTL = 15 * time.Second
 )
 
@@ -92,8 +77,7 @@ type Cache struct {
 	idleTTL  time.Duration
 	missTTL  time.Duration
 	now      func() time.Time
-
-	mu sync.Mutex
+	mu       sync.Mutex
 	blankState
 	items    map[Key]*list.Element
 	order    *list.List
@@ -133,10 +117,10 @@ func New(opts Options) *Cache {
 	return c
 }
 
-// TTL is how long a tile fetched now may be trusted.
-//
-// A square the renderer has never drawn gets its own short life, because
-// whether it exists can change without anybody being in the world.
+/*
+A square that has never been drawn gets its own short life: whether it
+exists can change without anybody being in the world.
+*/
 func (c *Cache) TTL(tile Tile) time.Duration {
 	if tile.Missing {
 		return c.missTTL

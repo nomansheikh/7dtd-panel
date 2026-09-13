@@ -4,6 +4,10 @@ import type L from "leaflet";
 /** How long to wait for a replacement layer before dropping the old one anyway. */
 const GIVE_UP_AFTER = 20_000;
 
+/* A refresh of cached squares finishes inside a frame, and feedback that
+   brief reads as nothing having happened. */
+const MIN_VISIBLE = 400;
+
 interface TileRefresh {
   map: RefObject<L.Map | null>;
   tiles: RefObject<L.TileLayer | null>;
@@ -13,53 +17,60 @@ interface TileRefresh {
   everyMs: number;
   /** Changes when somebody asks for a refresh that ignores every cache. */
   nonce: number;
+  /* Told only about an explicit refresh. The interval is meant to go
+     unnoticed; a control blinking every fifteen seconds on its own is noise. */
+  onBusyChange?: (busy: boolean) => void;
 }
 
-/**
- * Goes back and looks for ground drawn since the map was opened.
- *
- * Leaflet asks for a tile once, when it enters the view, and never again. On an
- * ordinary map that is right — nobody is redrawing the world while you look at
- * it. Here they are: a player walking into country nobody has visited makes the
- * server render it, and without this the map somebody is watching stays exactly
- * as it was when they opened it.
- *
- * The obvious way to do this is redraw(), and it is wrong: redraw() pulls every
- * tile out of the page and puts them back, so the whole map blinks each time.
- * Instead a second layer is laid over the first and the first is only removed
- * once the replacement has finished loading, which is invisible.
- *
- * Two kinds of refresh, because they cost very different amounts. The interval
- * keeps the same URLs, so the browser revalidates and is told 304 for every
- * square that has not changed. The explicit one changes the URL, so every
- * square in view is fetched again whatever any cache in between believes.
- *
- * Nothing happens while the tab is in the background: a map left open on a
- * second monitor should not keep a game server busy all night.
- */
-export function useTileRefresh({ map, tiles, build, everyMs, nonce }: TileRefresh) {
-  // Held in a ref so the interval always calls the current one without being
-  // torn down and rebuilt every time a dependency changes.
-  const swap = useRef<(version: number) => void>(() => {});
+/*
+Leaflet asks for a tile once, when it enters the view, and never again, so
+ground rendered while somebody is watching would never appear.
 
-  swap.current = (version: number) => {
+redraw() is the obvious fix and is wrong: it pulls every tile out of the page
+first, blinking the whole map. A second layer is laid over the first instead
+and the first removed once the replacement has loaded.
+
+The interval keeps the same URLs so the browser revalidates and is told 304;
+the explicit refresh changes the URL so every square is fetched again.
+*/
+export function useTileRefresh({ map, tiles, build, everyMs, nonce, onBusyChange }: TileRefresh) {
+  /* In a ref so the interval calls the current one without being torn down
+     and rebuilt whenever a dependency changes. */
+  const swap = useRef<(version: number, announce: boolean) => void>(() => {});
+  /* Refreshes can overlap, so a count rather than a flag. */
+  const running = useRef(0);
+  const report = useRef<((busy: boolean) => void) | undefined>(undefined);
+  report.current = onBusyChange;
+
+  swap.current = (version: number, announce: boolean) => {
     const instance = map.current;
     const previous = tiles.current;
     if (!instance || !previous) return;
 
     const replacement = build(version);
+    const startedAt = Date.now();
+    if (announce) {
+      running.current += 1;
+      report.current?.(true);
+    }
+
     let retired = false;
     const retire = () => {
       if (retired) return;
       retired = true;
       instance.removeLayer(previous);
+
+      if (!announce) return;
+      const linger = Math.max(0, MIN_VISIBLE - (Date.now() - startedAt));
+      window.setTimeout(() => {
+        running.current -= 1;
+        if (running.current === 0) report.current?.(false);
+      }, linger);
     };
 
-    // Only once the new tiles are up. A layer whose squares are all cached
-    // still fires this, on the next frame.
     replacement.on("load", retire);
-    // If it never finishes — a server that stops answering mid-refresh — the
-    // old layer would otherwise stay for ever and they would pile up.
+    /* A server that stops answering mid-refresh would otherwise leave the old
+       layer for ever, and they would pile up. */
     window.setTimeout(retire, GIVE_UP_AFTER);
 
     replacement.addTo(instance);
@@ -69,16 +80,17 @@ export function useTileRefresh({ map, tiles, build, everyMs, nonce }: TileRefres
   useEffect(() => {
     if (everyMs <= 0) return;
     const timer = window.setInterval(() => {
+      /* Nothing while the tab is in the background: a map on a second monitor
+         should not keep a game server busy all night. */
       if (document.visibilityState !== "visible") return;
-      // Same version, so the URLs are unchanged and the browser revalidates.
       const version = (tiles.current?.options as { v?: number } | undefined)?.v ?? 0;
-      swap.current(version);
+      swap.current(version, false);
     }, everyMs);
     return () => window.clearInterval(timer);
   }, [everyMs, tiles]);
 
   useEffect(() => {
     if (nonce <= 0) return;
-    swap.current(nonce);
+    swap.current(nonce, true);
   }, [nonce]);
 }

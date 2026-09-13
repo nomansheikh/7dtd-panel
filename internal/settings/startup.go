@@ -2,7 +2,6 @@ package settings
 
 /*
 Which preferences the server reads once, when it starts.
-
 The panel's first rule for "can this be changed" was whether getgamepref
 reports the preference back, on the reasoning that a value the server will not
 read out is one it is not using. That rule is not enough, and EnableMapRendering
@@ -12,11 +11,9 @@ renderer is built at startup from serverconfig.xml and never consulted again.
 The game says so itself — `rendermap` answers "Renderer not enabled" and
 `enablerendering` carries the note "This command can only turn the renderer off,
 it can not turn it on if it is not enabled in the serverconfig!".
-
 Worse, setgamepref does not write serverconfig.xml, so a change to one of these
 is inert twice over: nothing happens now, and nothing survives a restart. An
 operator who is told the change worked has been told something false.
-
 Only EnableMapRendering has been demonstrated against a live server. The rest
 are grouped by the subsystem they configure — the web and telnet listeners, the
 world's own identity, the network and anticheat stack — all of which are built

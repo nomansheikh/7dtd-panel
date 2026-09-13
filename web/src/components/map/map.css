@@ -94,3 +94,23 @@
     0 0 3px var(--ash-950),
     0 0 3px var(--ash-950);
 }
+
+/* --- tooltip contents --- */
+
+/* Who or what this is: the one thing read first. */
+.map-tip-name {
+  font-family: var(--font-sans);
+  color: var(--bone);
+}
+
+/* What it is doing, in words rather than numbers. */
+.map-tip-note {
+  font-family: var(--font-sans);
+  color: var(--bone-dim);
+}
+
+/* The axis letters. Dimmed so the figures beside them stay the thing being
+   read, while still saying which number is which. */
+.map-axis {
+  color: var(--bone-faint);
+}

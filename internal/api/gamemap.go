@@ -29,11 +29,10 @@ func (s *Server) handleMapConfig(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// maxTileCoordinate bounds the numbers accepted in a tile path.
-//
-// The largest world the game generates is 16384 blocks, which is 128 tiles on
-// a side at full zoom. This is far above that and still small enough that no
-// arithmetic below can overflow or produce an absurd upstream path.
+/*
+Far above the 128 tiles a side that the largest world needs, and still
+small enough that nothing below can overflow.
+*/
 const maxTileCoordinate = 1 << 16
 
 // handleMapTile serves one rendered square.
@@ -72,9 +71,7 @@ func (s *Server) handleMapTile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if tile.Missing {
-		// Ordinary rather than exceptional: the renderer only draws a square
-		// once a player has loaded the chunks under it, so most of a world has
-		// never been drawn. The browser treats it as an empty square.
+		/* Ordinary, not exceptional: most of a world has never been drawn. */
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
@@ -85,11 +82,10 @@ func (s *Server) handleMapTile(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(tile.Bytes)
 }
 
-// cacheControl renders the directive for a tile good for age.
-//
-// stale-while-revalidate lets the browser paint the square it already has and
-// check for a newer one in the background, so panning back over ground already
-// covered never waits on the network.
+/*
+stale-while-revalidate lets the browser paint the square it has and check
+for a newer one behind, so panning over covered ground never waits.
+*/
 func cacheControl(age time.Duration) string {
 	seconds := int(age.Seconds())
 	if seconds < 1 {
@@ -98,11 +94,11 @@ func cacheControl(age time.Duration) string {
 	return "private, max-age=" + strconv.Itoa(seconds) + ", stale-while-revalidate=60"
 }
 
-// tileKey reads and checks the coordinates out of a tile path.
-//
-// The y in the path is the browser's row, which counts the opposite way to the
-// game's. The flip happens here rather than in the browser so that the URL a
-// person sees in the network tab matches the tile file on the game server.
+/*
+The y in the path is the browser's row, which counts the opposite way to
+the game's. Flipped here so the URL in the network tab matches the tile file
+on the game server.
+*/
 func tileKey(w http.ResponseWriter, r *http.Request) (gamemap.Key, bool) {
 	z, zOK := tileCoordinate(r.PathValue("z"))
 	x, xOK := tileCoordinate(r.PathValue("x"))

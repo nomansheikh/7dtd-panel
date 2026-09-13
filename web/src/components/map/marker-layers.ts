@@ -1,14 +1,11 @@
 import L from "leaflet";
 import type { MapMarker } from "@/lib/api";
 import type { MapPalette } from "@/components/map/palette";
+import { claimTooltip, playerTooltip, escape } from "@/components/map/tooltips";
 
 /** Where a marker sits: Leaflet's lat is the world's x, its lng the world's z. */
 export function at(marker: MapMarker): L.LatLng {
   return L.latLng(marker.x, marker.z);
-}
-
-export function coordinates(marker: MapMarker): string {
-  return `${Math.round(marker.x)} ${Math.round(marker.y)} ${Math.round(marker.z)}`;
 }
 
 /** One overlay, seen from the map: it catches up, repaints, and stops. */
@@ -138,12 +135,12 @@ export function playerMarkers(group: L.LayerGroup): LiveMarkers<L.Marker> {
     group,
     (marker) => {
       const drawn = L.marker(at(marker), { icon: icon(marker.name), keyboard: false });
-      drawn.bindTooltip(`${marker.name} · ${coordinates(marker)}`, { direction: "top" });
+      drawn.bindTooltip(playerTooltip(marker), { direction: "top" });
       return drawn;
     },
     (layer, marker) => {
       layer.setLatLng(at(marker));
-      layer.setTooltipContent(`${marker.name} · ${coordinates(marker)}`);
+      layer.setTooltipContent(playerTooltip(marker));
     },
   );
 }
@@ -173,7 +170,7 @@ export function claimMarkers(
     group,
     (marker) => {
       const drawn = L.rectangle(square(marker), { renderer, ...style(marker, palette) });
-      drawn.bindTooltip(claimLabel(marker), { direction: "top" });
+      drawn.bindTooltip(claimTooltip(marker), { direction: "top" });
       return drawn;
     },
     (layer, marker) => layer.setBounds(square(marker)),
@@ -183,15 +180,3 @@ export function claimMarkers(
   );
 }
 
-function claimLabel(marker: MapMarker): string {
-  const owner = marker.owner || "unknown owner";
-  const state = marker.active ? "active" : "lapsed — no longer protecting";
-  return `${escape(owner)} · ${state} · ${coordinates(marker)}`;
-}
-
-/** Player names come from the game and land in HTML, so they are escaped. */
-function escape(text: string): string {
-  const el = document.createElement("span");
-  el.textContent = text;
-  return el.innerHTML;
-}
