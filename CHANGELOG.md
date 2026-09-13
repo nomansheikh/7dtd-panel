@@ -12,7 +12,7 @@ Versions are `0.MINOR.PATCH` while this is pre-1.0; see
 <!-- Add entries here as things land. At release time, rename this heading to
      the version and open a fresh Unreleased above it. -->
 
-## [0.1.0] - unreleased
+## [0.1.0] - 2026-09-13
 
 ### Added
 
