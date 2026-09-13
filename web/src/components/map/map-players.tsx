@@ -33,16 +33,18 @@ export function MapPlayers({ players, hidden, onGoTo }: MapPlayersProps) {
         type="button"
         onClick={() => setOpen((was) => !was)}
         aria-expanded={open}
-        className="region-head w-full text-left"
+        className="region-head w-full gap-2 text-left"
       >
-        <Chevron className="size-3.5 shrink-0 text-bone-faint" aria-hidden />
+        <span className="map-lead">
+          <Chevron className="size-3.5 text-bone-faint" aria-hidden />
+        </span>
         <span className="stencil flex-1">Online</span>
         <span className="readout text-2xs text-bone-dim">{players.length}</span>
       </button>
 
       {open ? (
         players.length === 0 ? (
-          <p className="px-4 py-3 text-2xs text-bone-faint">
+          <p className="py-3 pr-4 pl-10 text-2xs text-bone-faint">
             {hidden
               ? "The player layer is switched off, so nobody is being fetched."
               : "Nobody is in the world. Anyone who joins appears here and on the map."}
@@ -58,7 +60,9 @@ export function MapPlayers({ players, hidden, onGoTo }: MapPlayersProps) {
                   to={`/players/${encodeURIComponent(player.platformId ?? "")}`}
                   className="flex min-w-0 flex-1 items-center gap-2 px-4 py-2 hover:bg-accent"
                 >
-                  <UserRound className="size-3.5 shrink-0 text-bone-faint" aria-hidden />
+                  <span className="map-lead">
+                    <UserRound className="size-3.5 text-bone-faint" aria-hidden />
+                  </span>
                   <span className="truncate text-sm">{player.name}</span>
                 </Link>
                 <button

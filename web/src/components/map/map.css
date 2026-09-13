@@ -121,3 +121,16 @@
 .map-axis {
   color: var(--bone-faint);
 }
+
+/*
+One gutter for every line in the side panel, so section labels, player names
+and layer swatches all begin at the same column. Each kind of row carries a
+different leading glyph — a chevron, an icon, a colour swatch, nothing — and
+without a fixed slot for it they started at 17, 33, 39 and 41 pixels.
+*/
+.map-lead {
+  flex: none;
+  width: 1rem;
+  display: flex;
+  justify-content: center;
+}

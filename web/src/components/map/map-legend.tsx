@@ -55,7 +55,8 @@ interface MapLegendProps {
 export function MapLegend({ shown, counts, problems, onToggle }: MapLegendProps) {
   return (
     <div className="region">
-      <div className="region-head">
+      <div className="region-head gap-2">
+        <span className="map-lead" aria-hidden />
         <span className="stencil">Layers</span>
       </div>
       <ul>
@@ -65,7 +66,9 @@ export function MapLegend({ shown, counts, problems, onToggle }: MapLegendProps)
           return (
             <li key={layer.name} className="border-t border-border px-4 py-2 first:border-t-0">
               <div className="flex items-center gap-2">
-                <span className={cn("size-2 shrink-0", layer.swatch)} aria-hidden />
+                <span className="map-lead">
+                  <span className={cn("size-2", layer.swatch)} aria-hidden />
+                </span>
                 <span className="flex-1 text-sm">{layer.label}</span>
                 {on && !problem ? (
                   <span className="readout text-2xs text-bone-dim">{counts[layer.name] ?? 0}</span>
@@ -76,9 +79,9 @@ export function MapLegend({ shown, counts, problems, onToggle }: MapLegendProps)
                   aria-label={`Show ${layer.label.toLowerCase()} on the map`}
                 />
               </div>
-              <p className="mt-1 pl-4 text-2xs text-bone-faint">{layer.note}</p>
+              <p className="mt-1 pl-6 text-2xs text-bone-faint">{layer.note}</p>
               {on && problem ? (
-                <p className="mt-1 pl-4 text-2xs text-crimson-lit">Could not be read: {problem}</p>
+                <p className="mt-1 pl-6 text-2xs text-crimson-lit">Could not be read: {problem}</p>
               ) : null}
             </li>
           );

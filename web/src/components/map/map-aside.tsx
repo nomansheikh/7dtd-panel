@@ -28,14 +28,15 @@ export function MapFreshness({
   const live = status === "online";
   return (
     <div className="region">
-      <div className="region-head">
+      <div className="region-head gap-2">
+        <span className="map-lead" aria-hidden />
         <span className="stencil flex-1">Ground</span>
         <StatusDot status={status} />
         <span className="text-2xs text-bone-dim">
           {live ? (playing ? "live" : "idle") : "not updating"}
         </span>
       </div>
-      <div className="space-y-2 p-4">
+      <div className="space-y-2 py-4 pr-4 pl-10">
         <p className="text-2xs text-bone-faint">
           {!live
             ? "The game server is not answering, so the map is whatever was last drawn."
@@ -65,21 +66,22 @@ export function MapFreshness({
 export function MapScale({ worldSize, maxZoom }: { worldSize: number; maxZoom: number }) {
   return (
     <div className="region">
-      <div className="region-head">
+      <div className="region-head gap-2">
+        <span className="map-lead" aria-hidden />
         <span className="stencil">This world</span>
       </div>
-      <dl className="grid grid-cols-2 gap-x-3 gap-y-1 px-4 py-3 text-sm">
+      <dl className="grid grid-cols-2 gap-x-3 gap-y-1 py-3 pr-4 pl-10 text-sm">
         <dt className="text-bone-dim">Width</dt>
         <dd className="readout text-right">{worldSize.toLocaleString()} blocks</dd>
         <dt className="text-bone-dim">Closest zoom</dt>
         <dd className="readout text-right">1 block per pixel</dd>
       </dl>
-      <p className="px-4 pb-3 text-2xs text-bone-faint">
+      <p className="pr-4 pb-3 pl-10 text-2xs text-bone-faint">
         At the closest zoom the whole world is {worldSize.toLocaleString()} pixels across, which is{" "}
         {((worldSize / 128) ** 2).toLocaleString()} squares. Only the ones on screen are ever
         fetched, and each is kept until the server has had a chance to redraw it.
       </p>
-      <p className="px-4 pb-3 text-2xs text-bone-faint">Rendered to zoom {maxZoom}.</p>
+      <p className="pr-4 pb-3 pl-10 text-2xs text-bone-faint">Rendered to zoom {maxZoom}.</p>
     </div>
   );
 }
