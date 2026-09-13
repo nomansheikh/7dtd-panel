@@ -44,6 +44,12 @@ type decision struct {
 	// Remember records Key without running, which is how a change-driven task
 	// disarms itself.
 	Remember bool
+	/*
+		StartClock stamps the last-run time without running, which is how an
+		interval task that has never run gets a point to count from. Without it
+		the clock stays at zero and the task never becomes due at all.
+	*/
+	StartClock bool
 }
 
 /*
@@ -57,10 +63,13 @@ only on the way into a state worth acting on.
 func due(task store.Task, snap state.Snapshot, now time.Time) decision {
 	switch task.Trigger {
 	case store.TriggerEvery:
-		if task.Minutes <= 0 || task.LastRunAt.IsZero() {
+		if task.Minutes <= 0 {
+			return decision{}
+		}
+		if task.LastRunAt.IsZero() {
 			// Never run. Start the clock now rather than firing immediately:
 			// switching on "every six hours" should not mean "and also now".
-			return decision{}
+			return decision{StartClock: true}
 		}
 		return decision{Fire: now.Sub(task.LastRunAt) >= time.Duration(task.Minutes)*time.Minute}
 

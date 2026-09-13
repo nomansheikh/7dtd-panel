@@ -21,14 +21,13 @@ func TestAnIntervalTaskRepeats(t *testing.T) {
 	if n := len(r.client.commands()); n != 0 {
 		t.Fatalf("ran %d times on the first tick, want 0", n)
 	}
-
-	// Claim the starting point the way the engine would, then step forward.
 	task, err := r.db.Task(t.Context(), "test", "save")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := r.db.ClaimTask(t.Context(), "test", "save", task, "", r.now); err != nil {
-		t.Fatal(err)
+	if !task.LastRunAt.Equal(r.now) {
+		t.Fatalf("the first tick left the clock at %v, so nothing counts from "+
+			"anywhere and the task never comes due", task.LastRunAt)
 	}
 
 	r.now = r.now.Add(31 * time.Minute)
