@@ -94,7 +94,7 @@ export function MapPage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background lg:flex-row">
-      <div className="relative min-h-0 flex-1">
+      <div className="relative min-h-[55vh] flex-1 lg:min-h-0">
         <MapMenu
           at={menuAt}
           players={markers.players ?? []}
@@ -136,7 +136,7 @@ export function MapPage() {
         ) : null}
       </div>
 
-      <aside className="shrink-0 divide-y divide-border overflow-y-auto border-t border-border lg:w-72 lg:border-t-0 lg:border-l">
+      <aside className="min-h-0 shrink-0 divide-y divide-border overflow-y-auto border-t border-border lg:w-72 lg:border-t-0 lg:border-l">
         <MapPlayers
           players={markers.players ?? []}
           hidden={!shown.includes("players")}
