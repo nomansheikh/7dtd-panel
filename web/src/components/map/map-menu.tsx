@@ -81,10 +81,10 @@ export function MapMenu({ at, players, onTeleport, children }: MapMenuProps) {
         </ContextMenuItem>
 
         <ContextMenuSeparator />
-        <p className="px-2 py-1.5 text-2xs text-bone-faint">
-          <span className="readout">{forCommand}</span> — the -1 tells the game to put it on the
-          ground.
-        </p>
+        <div className="px-2 py-1.5">
+          <p className="readout text-2xs text-bone-dim">{forCommand}</p>
+          <p className="text-2xs text-bone-faint">The -1 puts it on the ground.</p>
+        </div>
       </ContextMenuContent>
     </ContextMenu>
   );
