@@ -257,7 +257,11 @@ export function ConsolePage() {
           Browse commands
           <kbd className="ml-1.5 text-2xs text-bone-faint">⌘K</kbd>
         </Button>
-        {catalogue && <span className="stencil">{commands.length} on this server</span>}
+        {/* Wrapped to three lines in a cramped toolbar; the count is context,
+            not something anybody came here for. */}
+        {catalogue && (
+          <span className="stencil hidden sm:inline">{commands.length} on this server</span>
+        )}
 
         <div className="ml-auto flex items-center gap-1">
           <Button

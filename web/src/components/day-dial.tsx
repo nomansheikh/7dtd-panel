@@ -165,7 +165,7 @@ export function DayDial({
   const sun = polar(R, angle(shown));
 
   return (
-    <div className="relative w-[360px] max-w-full shrink-0 select-none">
+    <div className="relative w-full select-none">
       <svg
         ref={svgRef}
         viewBox={`0 0 ${SIZE} ${SIZE}`}

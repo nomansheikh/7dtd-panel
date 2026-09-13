@@ -60,7 +60,7 @@ export function SettingsPage() {
         exactly when somebody needed it.
       */}
       <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-border px-4 py-2.5 md:px-6">
-        <TabsList className="h-7 rounded-none bg-transparent p-0">
+        <TabsList className="h-7 max-w-full justify-start overflow-x-auto rounded-none bg-transparent p-0">
           {data.sections.map((section) => (
             <TabsTrigger
               key={section.id}
@@ -321,8 +321,8 @@ function SettingRow({ setting }: { setting: Setting }) {
   const defaultText = setting.defaultLabel || asText(setting.default);
 
   return (
-    <div className="flex flex-wrap items-start gap-4 px-4 py-2.5 md:px-6">
-      <div className="min-w-0 flex-1">
+    <div className="grid gap-x-4 gap-y-2 px-4 py-2.5 sm:grid-cols-[minmax(0,1fr)_minmax(0,14rem)] md:px-6">
+      <div className="min-w-0">
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
           <span className="text-sm font-medium">{setting.label}</span>
           <code className="readout text-xs text-bone-faint">{setting.name}</code>
@@ -342,7 +342,7 @@ function SettingRow({ setting }: { setting: Setting }) {
         )}
       </div>
 
-      <div className="flex w-56 shrink-0 flex-col items-end gap-1">
+      <div className="flex min-w-0 flex-col items-start gap-1 sm:items-end">
         <Control
           setting={setting}
           draft={draft}

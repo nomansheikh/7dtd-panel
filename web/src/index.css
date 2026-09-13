@@ -507,3 +507,26 @@ html.immersive [data-slot="sidebar-wrapper"] {
   --shell-max: 100vw;
   max-width: none;
 }
+
+/*
+Controls that appear on hover — a row's edit and delete, say.
+
+A touch screen has no hover, so `opacity-0` with `group-hover:opacity-100`
+leaves them permanently invisible: the server page's edit and remove buttons
+were in the DOM at full opacity and impossible to see or find. They stay
+visible unless the device can actually hover.
+*/
+.reveal-on-hover {
+  transition: opacity 150ms;
+}
+
+@media (hover: hover) {
+  .reveal-on-hover {
+    opacity: 0;
+  }
+
+  .group:hover .reveal-on-hover,
+  .group:focus-within .reveal-on-hover {
+    opacity: 1;
+  }
+}

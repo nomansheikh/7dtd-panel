@@ -71,14 +71,19 @@ function title(pathname: string): string {
   return section ? TITLES[section] : "Panel";
 }
 
+/* Every route the nav offers, or the bar falls back to "Panel" — which is what
+   Chat, Automation and Servers were all showing. */
 const TITLES: Record<string, string> = {
   "/": "Overview",
   "/players": "Players",
   "/map": "Map",
   "/world": "World",
+  "/chat": "Chat",
+  "/automation": "Automation",
   "/console": "Console",
   "/events": "Events",
   "/settings": "Settings",
+  "/servers": "Servers",
 };
 
 /**
@@ -132,7 +137,15 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="flex h-full w-full min-w-0 flex-col overflow-hidden">
           <TopBar />
           <CycleStrip />
-          <main className="min-h-0 flex-1 overflow-hidden">{children}</main>
+          {/*
+            Scrolls, so a page is not obliged to manage its own height. It used
+            to hide its overflow, which meant any page that only set padding —
+            world, chat, automation, settings — had its tail clipped and
+            unreachable: chat ran 81px past an 844px window with nothing on the
+            page able to scroll. Pages that do fill the height still use h-full
+            and scroll inside themselves.
+          */}
+          <main className="min-h-0 flex-1 overflow-y-auto">{children}</main>
         </div>
       </SidebarInset>
     </SidebarProvider>
@@ -283,6 +296,12 @@ function TopBar() {
 
   return (
     <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border px-4 md:px-6">
+      {/*
+        Below the sidebar's breakpoint it becomes an off-canvas sheet, and its
+        own trigger goes off screen with it — leaving no way to reach any other
+        page. This is the only way in on a phone.
+      */}
+      <SidebarTrigger className="-ml-1 shrink-0 text-bone-faint md:hidden" />
       <h1 className="font-display text-base leading-none font-bold tracking-[0.14em] uppercase">
         {title(pathname)}
       </h1>

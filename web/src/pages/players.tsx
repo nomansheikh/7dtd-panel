@@ -6,7 +6,6 @@ import {
   createFilteredRowModel,
   createSortedRowModel,
   filterFns,
-  flexRender,
   globalFilteringFeature,
   rowSortingFeature,
   sortFns,
@@ -20,14 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { PlayerTable } from "@/components/player-table";
 import {
   Dialog,
   DialogContent,
@@ -55,7 +47,7 @@ function lastSeen(player: Player): string {
 // rather than passed to useTable: in v9 createSortedRowModel and
 // createFilteredRowModel take no arguments, and globalFilteringFeature will
 // not run without columnFilteringFeature alongside it.
-const features = tableFeatures({
+export const features = tableFeatures({
   rowSortingFeature,
   columnFilteringFeature,
   globalFilteringFeature,
@@ -196,15 +188,17 @@ export function PlayersPage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="region-head shrink-0 gap-3">
-        <span className="stencil">
+      {/* Wraps rather than squashing: with no room the count was breaking into
+          a column of fragments down the left edge. */}
+      <div className="region-head shrink-0 flex-wrap gap-3">
+        <span className="stencil shrink-0">
           {online} online · {players.length} known
         </span>
         <Input
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           placeholder="Filter by name"
-          className="ml-auto h-7 max-w-56 text-xs"
+          className="order-last h-7 w-full text-xs sm:order-none sm:ml-auto sm:w-auto sm:max-w-56"
         />
         {/* Two things that are about everybody rather than about one row, so
             they sit in the header instead of in every player's menu. */}
@@ -235,41 +229,7 @@ export function PlayersPage() {
           listed after they leave.
         </p>
       ) : (
-        <div className="region min-h-0 flex-1 overflow-auto">
-          <Table>
-            <TableHeader>
-              {table.getHeaderGroups().map((group) => (
-                <TableRow key={group.id}>
-                  {group.headers.map((header) => (
-                    <TableHead key={header.id}>
-                      {header.isPlaceholder ? null : (
-                        <button
-                          type="button"
-                          className="flex items-center gap-1"
-                          onClick={header.column.getToggleSortingHandler()}
-                        >
-                          {flexRender(header.column.columnDef.header, header.getContext())}
-                          {{ asc: "↑", desc: "↓" }[header.column.getIsSorted() as string] ?? null}
-                        </button>
-                      )}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              ))}
-            </TableHeader>
-            <TableBody>
-              {table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
-                  {row.getAllCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+        <PlayerTable table={table} />
       )}
 
       <p className="text-xs text-muted-foreground">

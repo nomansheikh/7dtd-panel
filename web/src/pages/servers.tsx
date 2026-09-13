@@ -32,7 +32,7 @@ export function ServersPage() {
   const remove = useDeleteServer();
 
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto">
+    <div>
       <div className="region-head">
         <span className="stencil">Game servers</span>
         <span className="readout text-xs text-bone-faint">{servers.length}</span>
@@ -89,7 +89,7 @@ export function ServersPage() {
                   Switch to it
                 </Button>
               )}
-              <span className="flex items-center gap-0.5 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
+              <span className="reveal-on-hover flex items-center gap-0.5">
                 <Button
                   variant="ghost"
                   size="icon"

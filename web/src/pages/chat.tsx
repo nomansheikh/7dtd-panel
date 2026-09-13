@@ -260,7 +260,7 @@ function CommandRow({
 
         <div className="ml-auto flex items-center gap-2">
           {custom && (
-            <span className="flex items-center gap-0.5 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
+            <span className="reveal-on-hover flex items-center gap-0.5">
               <Button
                 variant="ghost"
                 size="icon"
