@@ -1,12 +1,16 @@
 # 7dtd-panel
 
+[![CI](https://github.com/nomansheikh/7dtd-panel/actions/workflows/ci.yml/badge.svg)](https://github.com/nomansheikh/7dtd-panel/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/nomansheikh/7dtd-panel?sort=semver)](https://github.com/nomansheikh/7dtd-panel/releases)
+[![Licence: MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
+
 A self-hostable web admin panel for **7 Days to Die** dedicated servers.
 Go backend, React frontend, one binary, one container.
 
 > **Early days.** This is pre-1.0 and the version number means it: things
 > may move between releases. It is run daily against a live server, but it
-> has not been through many hands yet. See [what is not yet
-> proven](#what-is-not-yet-proven).
+> has not been through many hands yet. See [known
+> limitations](#known-limitations).
 
 The browser never talks to the game server. The API token lives only in the
 panel and every game call is proxied, so nothing that reaches a browser tab
@@ -14,7 +18,7 @@ can be replayed against your world.
 
 ---
 
-## What it does
+## Features
 
 - **Overview** — who is on, what the world is doing, how hard the server is
   working, and how long until the blood moon.
@@ -38,7 +42,7 @@ can be replayed against your world.
 
 Several game servers at once, each fully separate.
 
-## What it looks like
+## Screenshots
 
 The overview: the day at the size the day deserves, the blood moon
 countdown, server load, who is on, and the live feed down the side.
@@ -66,14 +70,13 @@ are read-only and which have been changed from the default.
 
 ![The settings page](docs/screenshots/settings.png)
 
-
-## Getting it running
+## Quick start
 
 You need a 7 Days to Die dedicated server with the **Allocs webinterface**
 mod and its web dashboard enabled. It does not have to be on the same
 machine.
 
-### 1. Make a token on the game server
+### 1. Create a token on the game server
 
 In the game server's console:
 
@@ -144,30 +147,24 @@ in the UI — this is the way to do it.
 For several game servers, see the commented section in
 [`.env.example`](.env.example).
 
-## What is not yet proven
+## Security
 
-Everything here works against the server it was built on. These parts have
-not been exercised anywhere else, and are the most likely to bite:
+The API token the panel holds is created at permission level 0, which is
+maximum. Anyone who can reach the panel and sign in can do anything that
+token can, including commands that delete world data. Put it on a private
+network or behind a reverse proxy with TLS; it is not a firewall and should
+not be exposed to the internet as-is.
 
-- **Chat commands answering a live player.** Every layer is tested and the
-  log formats are pinned to real output, but the loop of somebody typing
-  `!day` in game and getting a reply has not been run end to end.
-- **Most automation triggers.** The repeat trigger has fired for real
-  against a live server. The daily, game-hour, blood moon, uptime, join,
-  leave, death and empty triggers are covered by tests rather than by having
-  happened.
+Set `PANEL_ALLOW_DESTRUCTIVE=false` to refuse the world-destroying commands
+outright. What counts as a vulnerability, and how to report one privately, is
+in [SECURITY.md](SECURITY.md).
 
-## Things worth knowing
+## Troubleshooting
 
 - **Copy buttons do nothing over plain HTTP on a LAN.** The clipboard API
   needs a secure context, so it works on `localhost` and over HTTPS, and
   silently fails on `http://192.168.x.x`. That is the browser, not the
   panel. Put it behind TLS if you want copy to work from another machine.
-- **The panel is not a firewall.** Anyone who can reach it and sign in can
-  do anything your token can. Put it on a private network or behind a
-  reverse proxy with TLS; do not expose it to the internet as-is. What
-  counts as a vulnerability, and how to report one, is in
-  [SECURITY.md](SECURITY.md).
 - **A bind mount needs chowning; a named volume does not.** The panel runs
   as uid 65532, and `docker compose up` with the named volume above just
   works. If you swap it for a host path, `chown 65532:65532` that directory
@@ -182,7 +179,20 @@ not been exercised anywhere else, and are the most likely to bite:
   so instead of showing an empty world. With it on, tiles only exist where
   somebody has been — `visitmap` draws the rest.
 
-## Versions
+## Known limitations
+
+Everything here works against the server it was built on. These parts have
+not been exercised anywhere else, and are the most likely to bite:
+
+- **Chat commands answering a live player.** Every layer is tested and the
+  log formats are pinned to real output, but the loop of somebody typing
+  `!day` in game and getting a reply has not been run end to end.
+- **Most automation triggers.** The repeat trigger has fired for real
+  against a live server. The daily, game-hour, blood moon, uptime, join,
+  leave, death and empty triggers are covered by tests rather than by having
+  happened.
+
+## Versioning
 
 Pre-1.0, so `0.MINOR.PATCH`, and the number is worked out from the commit
 messages rather than chosen. Three tags are published: an exact one that
