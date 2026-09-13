@@ -1,5 +1,0 @@
-uid=3_0 RootWebArea "7 Days to Die admin" url="http://localhost:5173/map"
-  uid=3_84 region "Notifications alt+T" live="polite" relevant="additions text"
-  uid=4_0 menu orientation="vertical"
-    uid=4_1 menuitem "Teleport somebody here" expandable focusable focused haspopup="menu"
-    uid=4_2 menuitem "Copy for a command"
