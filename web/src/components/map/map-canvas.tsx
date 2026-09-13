@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { MapConfig, MapLayerName, MapMarker } from "@/lib/api";
@@ -62,6 +62,28 @@ export function MapCanvas({
   const tiles = useRef<L.TileLayer | null>(null);
   const overlays = useRef<Partial<Record<MapLayerName, Overlay>>>({});
 
+  // Builds a tile layer and wires up the "has anything been drawn" count.
+  // Used for the first one and for every replacement a refresh lays over it.
+  const buildTiles = useCallback(
+    (version: number) => {
+      const layer = tileLayer(tileTemplate, config, version);
+      let drawn = 0;
+      // A square the renderer has never drawn also fires tileload: Leaflet
+      // puts the blank image in the tile's src when the request fails, and the
+      // browser reports that substitute as having loaded. Counting those would
+      // make an entirely blank map claim it had ground on it.
+      layer.on("tileload", (event: L.TileEvent) => {
+        if ((event.tile as HTMLImageElement).src !== BLANK_TILE) drawn += 1;
+      });
+      // Fires once a whole screenful has settled, so this is asked after the
+      // viewport has had its chance rather than after the first tile.
+      layer.on("load", () => onTilesSeen?.(drawn > 0));
+      return layer;
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [tileTemplate, config.tileSize, config.maxZoom],
+  );
+
   // Built once. Rebuilding it on a prop change would reset the view the
   // operator had panned to.
   useEffect(() => {
@@ -79,21 +101,17 @@ export function MapCanvas({
       maxBoundsViscosity: 0.8,
       zoomControl: false,
       attributionControl: false,
+      // Tiles appear at once rather than fading up from nothing.
+      //
+      // The fade is why refreshing blinked: a replacement layer's tiles start
+      // transparent, and the event that says they have loaded fires before the
+      // fade has finished, so the old layer was being taken away while the new
+      // one was still invisible. Measured at a 100% dip in what was on screen.
+      fadeAnimation: false,
     });
 
-    const layer = tileLayer(tileTemplate, config);
+    const layer = buildTiles(0);
     tiles.current = layer;
-    let drawn = 0;
-    // A square the renderer has never drawn also fires tileload: Leaflet puts
-    // the blank image in the tile's src when the request fails, and the
-    // browser reports that substitute as having loaded. Counting those would
-    // make an entirely blank map claim it had ground on it.
-    layer.on("tileload", (event: L.TileEvent) => {
-      if ((event.tile as HTMLImageElement).src !== BLANK_TILE) drawn += 1;
-    });
-    // Fires once a whole screenful has settled, so this is asked after the
-    // viewport has had its chance rather than after the first tile.
-    layer.on("load", () => onTilesSeen?.(drawn > 0));
     layer.addTo(instance);
     L.control.zoom({ position: "bottomright" }).addTo(instance);
 
@@ -155,7 +173,7 @@ export function MapCanvas({
     }
   }, [theme]);
 
-  useTileRefresh(tiles, refreshMs, refreshNonce);
+  useTileRefresh({ map, tiles, build: buildTiles, everyMs: refreshMs, nonce: refreshNonce });
 
   // Move what is drawn to where it now is.
   useEffect(() => {

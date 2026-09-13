@@ -54,12 +54,12 @@ export const BLANK_TILE =
  * Without both, zooming out on a large world would ask for thousands of tiles
  * that have never existed.
  */
-export function tileLayer(template: string, config: MapConfig): L.TileLayer {
+export function tileLayer(template: string, config: MapConfig, version = 0): L.TileLayer {
   // Leaflet fills any extra option into a matching {placeholder} in the
   // template, which its own types do not describe.
   const options = {
-    // Filled into {v}. Only a hard refresh changes it.
-    v: 0,
+    // Filled into {v}. Only a refresh that must ignore caches changes it.
+    v: version,
     tileSize: config.tileSize,
     minZoom: 0,
     // One level of over-zoom, upscaled from the deepest real tiles, which is
