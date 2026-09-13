@@ -2,12 +2,7 @@ import { useCallback, useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { MapConfig, MapLayerName, MapMarker } from "@/lib/api";
-import {
-  BLANK_TILE,
-  tileLayer,
-  worldBounds,
-  worldCRS,
-} from "@/components/map/projection";
+import { BLANK_TILE, tileLayer, worldBounds, worldCRS } from "@/components/map/projection";
 import { useMarkerOverlays } from "@/components/map/use-marker-overlays";
 import { useTileRefresh } from "@/components/map/use-tile-refresh";
 import { useTheme } from "@/hooks/use-theme";
@@ -17,9 +12,7 @@ interface MapCanvasProps {
   tileTemplate: string;
   markers: Partial<Record<MapLayerName, MapMarker[]>>;
   shown: MapLayerName[];
-  onPositionChange?: (
-    position: { x: number; z: number; zoom: number } | null,
-  ) => void;
+  onPositionChange?: (position: { x: number; z: number; zoom: number } | null) => void;
   /* The map's own config cannot be trusted for this: a server can report
      "enabled" and have no tiles at all. Counting what arrives is the only
      honest signal. */
@@ -32,6 +25,7 @@ interface MapCanvasProps {
   onRefreshingChange?: (busy: boolean) => void;
   /** Somewhere to move the view to. `at` changing is what triggers the move. */
   focus?: { x: number; z: number; at: number } | null;
+  onContextMenu?: (at: { screenX: number; screenY: number; x: number; z: number }) => void;
 }
 
 /*
@@ -50,6 +44,7 @@ export function MapCanvas({
   refreshNonce = 0,
   onRefreshingChange,
   focus = null,
+  onContextMenu,
 }: MapCanvasProps) {
   const { theme } = useTheme();
   const holder = useRef<HTMLDivElement | null>(null);
@@ -114,11 +109,18 @@ export function MapCanvas({
     instance.on("moveend zoomend", report);
     report();
 
+    instance.on("contextmenu", (event: L.LeafletMouseEvent) => {
+      onContextMenu?.({
+        screenX: event.originalEvent.clientX,
+        screenY: event.originalEvent.clientY,
+        x: event.latlng.lat,
+        z: event.latlng.lng,
+      });
+    });
+
     /* Leaflet caches the container size, so going full screen would otherwise
        leave it drawing into the old rectangle. */
-    const resized = new ResizeObserver(() =>
-      instance.invalidateSize({ animate: false }),
-    );
+    const resized = new ResizeObserver(() => instance.invalidateSize({ animate: false }));
     resized.observe(holder.current);
 
     map.current = instance;

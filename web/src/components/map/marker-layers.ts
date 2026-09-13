@@ -179,4 +179,3 @@ export function claimMarkers(
     (layer, marker, next) => layer.setStyle(style(marker, next)),
   );
 }
-

@@ -45,9 +45,7 @@ export function MapFullscreenButton({
     <button
       type="button"
       onClick={onToggle}
-      aria-label={
-        isFullscreen ? "Leave full screen" : "Show the map full screen"
-      }
+      aria-label={isFullscreen ? "Leave full screen" : "Show the map full screen"}
       className="absolute top-2 right-2 z-[500] flex size-7 items-center justify-center border border-border bg-background text-bone-dim transition-colors hover:bg-accent hover:text-bone"
     >
       <Icon className="size-3.5" aria-hidden />

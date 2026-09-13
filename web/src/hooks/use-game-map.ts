@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { api, type MapLayerName } from "@/lib/api";
 import { useServerId } from "@/hooks/use-servers";
 
@@ -63,5 +64,19 @@ export function useClaimMarkers(enabled: boolean, everyMs = 120_000) {
     refetchInterval: everyMs,
     staleTime: everyMs,
     placeholderData: (previous) => previous,
+  });
+}
+
+/*
+Moves a player to a point on the map. The height is -1, which teleportplayer
+documents as "spawn on ground" — the map knows where, never how high.
+*/
+export function useTeleportToPoint() {
+  const serverId = useServerId();
+  return useMutation({
+    mutationFn: ({ entityId, x, z }: { entityId: number; name: string; x: number; z: number }) =>
+      api.teleport(serverId, entityId, { x, y: -1, z }),
+    onSuccess: (_result, sent) => toast.success(`${sent.name} moved to ${sent.x}, ${sent.z}`),
+    onError: (error: Error) => toast.error(error.message),
   });
 }

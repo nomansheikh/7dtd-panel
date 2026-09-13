@@ -58,10 +58,7 @@ export function MapPlayers({ players, hidden, onGoTo }: MapPlayersProps) {
                   to={`/players/${encodeURIComponent(player.platformId ?? "")}`}
                   className="flex min-w-0 flex-1 items-center gap-2 px-4 py-2 hover:bg-accent"
                 >
-                  <UserRound
-                    className="size-3.5 shrink-0 text-bone-faint"
-                    aria-hidden
-                  />
+                  <UserRound className="size-3.5 shrink-0 text-bone-faint" aria-hidden />
                   <span className="truncate text-sm">{player.name}</span>
                 </Link>
                 <button

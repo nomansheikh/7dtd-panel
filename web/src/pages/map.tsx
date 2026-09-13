@@ -1,18 +1,16 @@
 import { useMemo, useRef, useState } from "react";
 import { api, type MapLayerName, type MapMarker } from "@/lib/api";
 import { useServerId } from "@/hooks/use-servers";
+import { useTeleportToPoint } from "@/hooks/use-game-map";
 import { useClaimMarkers, useMapConfig, useMovingMarkers } from "@/hooks/use-game-map";
 import { useDashboard } from "@/hooks/use-dashboard";
 import { MapCanvas } from "@/components/map/map-canvas";
 import { MapLegend } from "@/components/map/map-legend";
 import { MapPlayers } from "@/components/map/map-players";
+import { MapMenu, type MapMenuAt } from "@/components/map/map-menu";
 import { MapFreshness, MapScale } from "@/components/map/map-aside";
 import { MapEmpty, MapUnavailable } from "@/components/map/map-unavailable";
-import {
-  MapCrosshair,
-  MapFullscreenButton,
-  type MapPosition,
-} from "@/components/map/map-controls";
+import { MapCrosshair, MapFullscreenButton, type MapPosition } from "@/components/map/map-controls";
 import { useFullscreen } from "@/hooks/use-fullscreen";
 import "@/components/map/map.css";
 
@@ -47,6 +45,8 @@ export function MapPage() {
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [focus, setFocus] = useState<{ x: number; z: number; at: number } | null>(null);
+  const [menuAt, setMenuAt] = useState<MapMenuAt | null>(null);
+  const teleport = useTeleportToPoint();
 
   // Full screen takes the whole page region, so the layer switches come with
   // it rather than being left behind on a screen nobody can see.
@@ -104,9 +104,18 @@ export function MapPage() {
           refreshNonce={refreshNonce}
           onRefreshingChange={setRefreshing}
           focus={focus}
+          onContextMenu={setMenuAt}
         />
         {anyTiles === false ? <MapEmpty /> : null}
         <MapCrosshair position={position} />
+        <MapMenu
+          at={menuAt}
+          players={markers.players ?? []}
+          onClose={() => setMenuAt(null)}
+          onTeleport={(player, x, z) =>
+            teleport.mutate({ entityId: player.id, name: player.name, x, z })
+          }
+        />
         {fullscreen.supported ? (
           <MapFullscreenButton
             isFullscreen={fullscreen.isFullscreen}

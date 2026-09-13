@@ -34,8 +34,7 @@ export function useFullscreen(target: RefObject<HTMLElement | null>) {
 
   /* Safari on iPhone has no requestFullscreen, so hide the control rather
      than offer one that fails. */
-  const supported =
-    typeof document !== "undefined" && document.fullscreenEnabled === true;
+  const supported = typeof document !== "undefined" && document.fullscreenEnabled === true;
 
   return { isFullscreen, toggle, supported };
 }
