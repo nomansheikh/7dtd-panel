@@ -114,11 +114,11 @@ Environment variables only. There is no config file to mount.
 
 | Variable | Default | What it is |
 | --- | --- | --- |
-| `SDTD_HOST` | *required* | Where the panel reaches the game server |
+| `SDTD_HOST` | — | Where the panel reaches the game server |
 | `SDTD_API_PORT` | `8080` | The game server's web API port |
 | `SDTD_API_SCHEME` | `http` | `https` only if that API is behind TLS |
-| `SDTD_API_TOKEN_NAME` | *required* | The name from `webtokens add` |
-| `SDTD_API_TOKEN_SECRET` | *required* | The secret from `webtokens add` |
+| `SDTD_API_TOKEN_NAME` | — | The name from `webtokens add` |
+| `SDTD_API_TOKEN_SECRET` | — | The secret from `webtokens add` |
 | `PANEL_ADMIN_USERNAME` | `admin` | Your panel login |
 | `PANEL_ADMIN_PASSWORD` | *required* | Reconciled on every boot — see below |
 | `PANEL_PORT` | `8080` | Port the panel listens on |
@@ -126,9 +126,16 @@ Environment variables only. There is no config file to mount.
 | `PANEL_ALLOW_DESTRUCTIVE` | `true` | `false` refuses `shutdown`, `killall` and `worldchunkreset` everywhere |
 | `PANEL_TRUST_PROXY` | `false` | `true` only behind something that sets `X-Forwarded-For` |
 | `PANEL_POLL_INTERVAL` | `5s` | How often the game server is polled |
+| `PANEL_FAILURE_THRESHOLD` | `3` | Failed polls before a server is called offline |
 | `PANEL_SESSION_TTL` | `168h` | How long a login lasts |
 | `PANEL_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
 | `PANEL_LOG_FORMAT` | `json` | `json` or `text` |
+
+The `SDTD_` variables are optional as a set. Set none of them and the panel
+starts with nothing to manage and asks for a game server on first run, which
+is the shorter path if you would rather not paste a token into a compose
+file. Set any one of them and the rest become required, because a half-filled
+environment is a typo rather than a choice.
 
 `PANEL_ADMIN_PASSWORD` is reconciled into the database on every boot, so
 changing it and restarting resets the password. There is no password change
@@ -158,7 +165,9 @@ not been exercised anywhere else, and are the most likely to bite:
   panel. Put it behind TLS if you want copy to work from another machine.
 - **The panel is not a firewall.** Anyone who can reach it and sign in can
   do anything your token can. Put it on a private network or behind a
-  reverse proxy with TLS; do not expose it to the internet as-is.
+  reverse proxy with TLS; do not expose it to the internet as-is. What
+  counts as a vulnerability, and how to report one, is in
+  [SECURITY.md](SECURITY.md).
 - **A bind mount needs chowning; a named volume does not.** The panel runs
   as uid 65532, and `docker compose up` with the named volume above just
   works. If you swap it for a host path, `chown 65532:65532` that directory
