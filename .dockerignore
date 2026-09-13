@@ -15,5 +15,6 @@ internal/web/dist
 !.env.example
 .tmp-verify
 docs
+scripts
 *.md
 !README.md

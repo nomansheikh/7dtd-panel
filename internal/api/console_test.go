@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/nomansheikh/7dtd-panel/internal/events"
+	"github.com/nomansheikh/7dtd-panel/internal/gamemap"
 	"github.com/nomansheikh/7dtd-panel/internal/sdtd"
 	"github.com/nomansheikh/7dtd-panel/internal/state"
 )
@@ -40,6 +41,46 @@ type fakeGame struct {
 	icon       []byte
 	iconErr    error
 	iconFor    string
+
+	mapConfig    sdtd.MapConfig
+	mapConfigErr error
+	hostiles     []sdtd.Entity
+	hostilesErr  error
+	animals      []sdtd.Entity
+	animalsErr   error
+	claims       []sdtd.LandClaim
+	claimsErr    error
+	tile         []byte
+	tileErr      error
+	tileFor      gamemap.Key
+}
+
+func (f *fakeGame) MapConfig(context.Context) (sdtd.MapConfig, error) {
+	return f.mapConfig, f.mapConfigErr
+}
+
+func (f *fakeGame) Hostiles(context.Context) ([]sdtd.Entity, error) {
+	return f.hostiles, f.hostilesErr
+}
+
+func (f *fakeGame) Animals(context.Context) ([]sdtd.Entity, error) {
+	return f.animals, f.animalsErr
+}
+
+func (f *fakeGame) LandClaims(context.Context) ([]sdtd.LandClaim, error) {
+	return f.claims, f.claimsErr
+}
+
+func (f *fakeGame) MapTile(_ context.Context, z, x, y int) ([]byte, error) {
+	// The cache asks for a square no world contains, to learn what this server
+	// sends for ground it has not drawn. Answer the way a server with
+	// rendering off does, so the probe teaches it nothing and these tests see
+	// the tile they set.
+	if x > 1<<16 || y > 1<<16 {
+		return nil, sdtd.ErrNoTile
+	}
+	f.tileFor = gamemap.Key{Z: z, X: x, Y: y}
+	return f.tile, f.tileErr
 }
 
 func (f *fakeGame) Players(context.Context) ([]sdtd.Player, error) {

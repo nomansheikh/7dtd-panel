@@ -16,6 +16,7 @@ import (
 	"github.com/nomansheikh/7dtd-panel/internal/catalog"
 	"github.com/nomansheikh/7dtd-panel/internal/config"
 	"github.com/nomansheikh/7dtd-panel/internal/events"
+	"github.com/nomansheikh/7dtd-panel/internal/gamemap"
 	"github.com/nomansheikh/7dtd-panel/internal/power"
 	"github.com/nomansheikh/7dtd-panel/internal/sdtd"
 	"github.com/nomansheikh/7dtd-panel/internal/state"
@@ -52,6 +53,17 @@ type Executor interface {
 	// ItemIcon fetches one item's art, which the panel proxies so the browser
 	// never has to reach the game server itself.
 	ItemIcon(ctx context.Context, name, tint string) ([]byte, error)
+
+	// MapConfig reports the rendered map's dimensions, which the browser needs
+	// before it can place a single tile.
+	MapConfig(ctx context.Context) (sdtd.MapConfig, error)
+	// Hostiles and Animals are the entities standing in loaded chunks. Both
+	// are empty on an idle server: nothing outside a loaded chunk exists.
+	Hostiles(ctx context.Context) ([]sdtd.Entity, error)
+	Animals(ctx context.Context) ([]sdtd.Entity, error)
+	// LandClaims lists every claim block, which is the one overlay that is
+	// true whether or not anybody is online.
+	LandClaims(ctx context.Context) ([]sdtd.LandClaim, error)
 }
 
 // Snapshotter supplies the cached view of a server.
@@ -111,6 +123,9 @@ type Server struct {
 	// Power runs the stop sequence for this server and watches whether it
 	// comes back. One per server, because only one can be stopping at a time.
 	Power *power.Controller
+	// Map holds this server's rendered tiles. Per server because two servers
+	// have different worlds, and a tile is identified only by its coordinates.
+	Map *gamemap.Cache
 
 	// These are the concrete collaborators Run needs. A Server assembled by a
 	// test leaves them nil and is simply never Run.
@@ -174,6 +189,13 @@ func build(
 		Poller:           poller,
 		Announce:         hub,
 		AllowDestructive: allowDestructive,
+	})
+	// The map cache asks the poller whether anybody is in the world, because
+	// the renderer only redraws a tile while a player is loading chunks. On an
+	// empty server the map is frozen and can be trusted for far longer.
+	srv.Map = gamemap.New(gamemap.Options{
+		Source: client,
+		Busy:   func() bool { return poller.Snapshot().CurrentPlayers > 0 },
 	})
 	return srv, nil
 }

@@ -6,6 +6,7 @@ import { ConsolePage } from "@/pages/console";
 import { EventsPage } from "@/pages/events";
 import { PlayerPage } from "@/pages/player";
 import { PlayersPage } from "@/pages/players";
+import { MapPage } from "@/pages/map";
 import { WorldPage } from "@/pages/world";
 import { ChatPage } from "@/pages/chat";
 import { AutomationPage } from "@/pages/automation";
@@ -37,6 +38,7 @@ export default function App() {
             <Route path="/" element={<DashboardPage />} />
             <Route path="/players" element={<PlayersPage />} />
             <Route path="/players/:platformId" element={<PlayerPage />} />
+            <Route path="/map" element={<MapPage />} />
             <Route path="/console" element={<ConsolePage />} />
             <Route path="/events" element={<EventsPage />} />
             <Route path="/world" element={<WorldPage />} />

@@ -150,6 +150,12 @@ func (s *Server) Routes() *http.ServeMux {
 	scoped("POST /api/servers/{server}/world/killall", s.handleKillAll)
 	scoped("POST /api/servers/{server}/world/reset-chunks", s.handleResetChunks)
 
+	// The live map. Tiles are a separate route from everything else because
+	// they arrive in the hundreds and answer with an image, not JSON.
+	scoped("GET /api/servers/{server}/map/config", s.handleMapConfig)
+	scoped("GET /api/servers/{server}/map/markers", s.handleMapMarkers)
+	scoped("GET /api/servers/{server}/map/tiles/{z}/{x}/{y}", s.handleMapTile)
+
 	scoped("GET /api/servers/{server}/settings", s.handleSettings)
 	scoped("PUT /api/servers/{server}/settings/{name}", s.handleUpdateSetting)
 

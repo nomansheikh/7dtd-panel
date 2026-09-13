@@ -1,0 +1,96 @@
+/*
+ * Leaflet's own look is a light-themed consumer map: rounded controls, white
+ * popups, drop shadows. All three are things this panel does not have, so its
+ * chrome is restyled here in the panel's tokens rather than left to sit on top
+ * of the interface looking like it came from somewhere else.
+ */
+
+.leaflet-container {
+  background: var(--ash-950);
+  font-family: inherit;
+  /* The map is one large scroll surface; the browser should not try to
+     interpret a drag across it as a page gesture. */
+  outline: none;
+}
+
+/* Tiles are photographs of terrain, not part of the interface: they keep their
+   own colour. Nearest-neighbour on over-zoom so an upscaled tile reads as
+   blocks rather than as a blur. */
+.map-tiles {
+  image-rendering: pixelated;
+}
+
+/* --- controls --- */
+
+.leaflet-control-zoom,
+.leaflet-bar {
+  border: 1px solid var(--ash-800, var(--ash-820));
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.leaflet-bar a,
+.leaflet-bar a:hover {
+  background: var(--ash-900);
+  color: var(--bone-dim);
+  border-radius: 0;
+  border-bottom-color: var(--ash-820);
+}
+
+.leaflet-bar a:hover {
+  background: var(--ash-860);
+  color: var(--bone);
+}
+
+.leaflet-bar a.leaflet-disabled {
+  background: var(--ash-950);
+  color: var(--bone-faint);
+}
+
+/* --- tooltips --- */
+
+.leaflet-tooltip {
+  background: var(--ash-950);
+  border: 1px solid var(--ash-820);
+  border-radius: 0;
+  box-shadow: none;
+  color: var(--bone);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  padding: 2px 6px;
+}
+
+.leaflet-tooltip-top::before {
+  border-top-color: var(--ash-820);
+}
+
+/* --- markers --- */
+
+.map-player {
+  /* The dot and the name are positioned off the marker's anchor, which sits at
+     the player's exact position. */
+  position: relative;
+}
+
+.map-player-dot {
+  position: absolute;
+  left: -4px;
+  top: -4px;
+  width: 8px;
+  height: 8px;
+  background: var(--bone);
+  border: 1px solid var(--ash-950);
+}
+
+.map-player-name {
+  position: absolute;
+  left: 8px;
+  top: -8px;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--bone);
+  text-shadow:
+    0 0 3px var(--ash-950),
+    0 0 3px var(--ash-950);
+}

@@ -5,6 +5,7 @@ import {
   Clock,
   Gauge,
   LogOut,
+  Map,
   MessageSquare,
   Monitor,
   Moon,
@@ -46,6 +47,7 @@ import { api } from "@/lib/api";
 const NAV = [
   { to: "/", label: "Overview", icon: Gauge },
   { to: "/players", label: "Players", icon: Users },
+  { to: "/map", label: "Map", icon: Map },
   { to: "/world", label: "World", icon: Radio },
   { to: "/chat", label: "Chat", icon: MessageSquare },
   { to: "/automation", label: "Automation", icon: Clock },
@@ -72,6 +74,7 @@ function title(pathname: string): string {
 const TITLES: Record<string, string> = {
   "/": "Overview",
   "/players": "Players",
+  "/map": "Map",
   "/world": "World",
   "/console": "Console",
   "/events": "Events",
