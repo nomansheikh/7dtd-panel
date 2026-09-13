@@ -7,7 +7,7 @@ import { useDashboard } from "@/hooks/use-dashboard";
 import { MapCanvas } from "@/components/map/map-canvas";
 import { MapLegend } from "@/components/map/map-legend";
 import { MapPlayers } from "@/components/map/map-players";
-import { MapMenu, type MapMenuAt } from "@/components/map/map-menu";
+import { MapMenu } from "@/components/map/map-menu";
 import { MapFreshness, MapScale } from "@/components/map/map-aside";
 import { MapEmpty, MapUnavailable } from "@/components/map/map-unavailable";
 import { MapCrosshair, MapFullscreenButton, type MapPosition } from "@/components/map/map-controls";
@@ -45,7 +45,7 @@ export function MapPage() {
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [focus, setFocus] = useState<{ x: number; z: number; at: number } | null>(null);
-  const [menuAt, setMenuAt] = useState<MapMenuAt | null>(null);
+  const [menuAt, setMenuAt] = useState<{ x: number; z: number } | null>(null);
   const teleport = useTeleportToPoint();
 
   // Full screen takes the whole page region, so the layer switches come with
@@ -93,29 +93,31 @@ export function MapPage() {
   return (
     <div ref={surface} className="flex h-full min-h-0 flex-col bg-background lg:flex-row">
       <div className="relative min-h-0 flex-1">
-        <MapCanvas
-          config={config.data}
-          tileTemplate={api.mapTileTemplate(serverId)}
-          markers={markers}
-          shown={shown}
-          onPositionChange={setPosition}
-          onTilesSeen={setAnyTiles}
-          refreshMs={playing ? REFRESH_WHILE_PLAYED : REFRESH_WHILE_EMPTY}
-          refreshNonce={refreshNonce}
-          onRefreshingChange={setRefreshing}
-          focus={focus}
-          onContextMenu={setMenuAt}
-        />
-        {anyTiles === false ? <MapEmpty /> : null}
-        <MapCrosshair position={position} />
         <MapMenu
           at={menuAt}
           players={markers.players ?? []}
-          onClose={() => setMenuAt(null)}
           onTeleport={(player, x, z) =>
             teleport.mutate({ entityId: player.id, name: player.name, x, z })
           }
-        />
+        >
+          <div className="h-full w-full">
+            <MapCanvas
+              config={config.data}
+              tileTemplate={api.mapTileTemplate(serverId)}
+              markers={markers}
+              shown={shown}
+              onPositionChange={setPosition}
+              onTilesSeen={setAnyTiles}
+              refreshMs={playing ? REFRESH_WHILE_PLAYED : REFRESH_WHILE_EMPTY}
+              refreshNonce={refreshNonce}
+              onRefreshingChange={setRefreshing}
+              focus={focus}
+              onContextMenu={setMenuAt}
+            />
+          </div>
+        </MapMenu>
+        {anyTiles === false ? <MapEmpty /> : null}
+        <MapCrosshair position={position} />
         {fullscreen.supported ? (
           <MapFullscreenButton
             isFullscreen={fullscreen.isFullscreen}

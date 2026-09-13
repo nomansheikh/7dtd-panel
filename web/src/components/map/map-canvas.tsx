@@ -25,7 +25,7 @@ interface MapCanvasProps {
   onRefreshingChange?: (busy: boolean) => void;
   /** Somewhere to move the view to. `at` changing is what triggers the move. */
   focus?: { x: number; z: number; at: number } | null;
-  onContextMenu?: (at: { screenX: number; screenY: number; x: number; z: number }) => void;
+  onContextMenu?: (at: { x: number; z: number }) => void;
 }
 
 /*
@@ -109,14 +109,22 @@ export function MapCanvas({
     instance.on("moveend zoomend", report);
     report();
 
-    instance.on("contextmenu", (event: L.LeafletMouseEvent) => {
-      onContextMenu?.({
-        screenX: event.originalEvent.clientX,
-        screenY: event.originalEvent.clientY,
-        x: event.latlng.lat,
-        z: event.latlng.lng,
-      });
-    });
+    /*
+    Leaflet calls preventDefault on every contextmenu, and Radix skips its own
+    handler when an event arrives already defaultPrevented, so a menu wrapping
+    the map would never open. Take the event away from Leaflet and read the
+    position off the map directly.
+    */
+    const container = instance.getContainer();
+    const leafletContextMenu = (instance as unknown as { _handleDOMEvent: EventListener })
+      ._handleDOMEvent;
+    L.DomEvent.off(container, "contextmenu", leafletContextMenu, instance);
+
+    const rightClick = (event: MouseEvent) => {
+      const point = instance.mouseEventToLatLng(event);
+      onContextMenu?.({ x: point.lat, z: point.lng });
+    };
+    container.addEventListener("contextmenu", rightClick);
 
     /* Leaflet caches the container size, so going full screen would otherwise
        leave it drawing into the old rectangle. */
@@ -126,6 +134,7 @@ export function MapCanvas({
     map.current = instance;
     return () => {
       resized.disconnect();
+      container.removeEventListener("contextmenu", rightClick);
       instance.remove();
       map.current = null;
       tiles.current = null;
