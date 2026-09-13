@@ -6,6 +6,13 @@
  */
 
 .leaflet-container {
+  /*
+  Leaflet's panes run from z-index 200 to 800, and the container sets none of
+  its own, so they compete in the root stacking context and paint over anything
+  portalled to the body — a menu at z-50 comes out underneath the tiles. Keep
+  them to themselves.
+  */
+  isolation: isolate;
   background: var(--ash-950);
   font-family: inherit;
   /* The map is one large scroll surface; the browser should not try to

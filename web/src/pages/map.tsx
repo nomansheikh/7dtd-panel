@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { api, type MapLayerName, type MapMarker } from "@/lib/api";
 import { useServerId } from "@/hooks/use-servers";
 import { useTeleportToPoint } from "@/hooks/use-game-map";
@@ -50,8 +50,7 @@ export function MapPage() {
 
   // Full screen takes the whole page region, so the layer switches come with
   // it rather than being left behind on a screen nobody can see.
-  const surface = useRef<HTMLDivElement | null>(null);
-  const fullscreen = useFullscreen(surface);
+  const fullscreen = useFullscreen();
 
   const config = useMapConfig();
   const dashboard = useDashboard();
@@ -91,7 +90,7 @@ export function MapPage() {
   }
 
   return (
-    <div ref={surface} className="flex h-full min-h-0 flex-col bg-background lg:flex-row">
+    <div className="flex h-full min-h-0 flex-col bg-background lg:flex-row">
       <div className="relative min-h-0 flex-1">
         <MapMenu
           at={menuAt}

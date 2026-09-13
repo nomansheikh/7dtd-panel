@@ -1,39 +1,52 @@
-import { useCallback, useEffect, useState, type RefObject } from "react";
+import { useCallback, useEffect, useState } from "react";
 
-/* The browser can leave full screen on its own — Escape, switching away — so
-   the state is read from the document rather than remembered from the click. */
-export function useFullscreen(target: RefObject<HTMLElement | null>) {
+/*
+Fills the screen with one page, by taking the whole document full screen and
+hiding the app's own chrome with a class.
+
+The obvious implementation — requesting full screen on just the page's own
+element — is wrong. A browser paints only the full-screen element's subtree, and
+every overlay in this app is portalled to document.body: the map's context menu
+rendered into nothing, and so would every toast. Taking the document full screen
+keeps all of them inside it.
+
+The browser can also leave full screen without being asked, so the state is read
+from the document rather than remembered from the last click.
+*/
+const CHROME_HIDDEN = "immersive";
+
+export function useFullscreen() {
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
-    /* The null check matters: before first paint both are null, and
-       null === null would claim the page is already full screen. */
-    const sync = () =>
-      setIsFullscreen(
-        document.fullscreenElement !== null && document.fullscreenElement === target.current,
-      );
+    const sync = () => {
+      const on = document.fullscreenElement === document.documentElement;
+      setIsFullscreen(on);
+      document.documentElement.classList.toggle(CHROME_HIDDEN, on);
+    };
     document.addEventListener("fullscreenchange", sync);
     sync();
-    return () => document.removeEventListener("fullscreenchange", sync);
-  }, [target]);
+    return () => {
+      document.removeEventListener("fullscreenchange", sync);
+      document.documentElement.classList.remove(CHROME_HIDDEN);
+    };
+  }, []);
 
   const toggle = useCallback(async () => {
-    const element = target.current;
-    if (!element) return;
     try {
       if (document.fullscreenElement) {
         await document.exitFullscreen();
       } else {
-        await element.requestFullscreen();
+        await document.documentElement.requestFullscreen();
       }
     } catch {
-      /* Refused: untrusted gesture, or disabled. Leaving the map is the
-         whole recovery. */
+      /* Refused: untrusted gesture, or disabled. Leaving the page as it was is
+         the whole recovery. */
     }
-  }, [target]);
+  }, []);
 
-  /* Safari on iPhone has no requestFullscreen, so hide the control rather
-     than offer one that fails. */
+  /* Safari on iPhone has no requestFullscreen, so hide the control rather than
+     offer one that fails. */
   const supported = typeof document !== "undefined" && document.fullscreenEnabled === true;
 
   return { isFullscreen, toggle, supported };
