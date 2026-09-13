@@ -71,14 +71,19 @@ function title(pathname: string): string {
   return section ? TITLES[section] : "Panel";
 }
 
+/* Every route the nav offers, or the bar falls back to "Panel" — which is what
+   Chat, Automation and Servers were all showing. */
 const TITLES: Record<string, string> = {
   "/": "Overview",
   "/players": "Players",
   "/map": "Map",
   "/world": "World",
+  "/chat": "Chat",
+  "/automation": "Automation",
   "/console": "Console",
   "/events": "Events",
   "/settings": "Settings",
+  "/servers": "Servers",
 };
 
 /**
