@@ -35,9 +35,12 @@ func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	for _, srv := range all {
 		snap := srv.Poller.Snapshot()
 		game := healthGame{ID: srv.ID, Name: srv.Name, Status: string(snap.Status)}
-		// Surface the reason only once a server is actually considered down; a
-		// single blip is not worth alarming about.
-		if snap.Status == state.StatusOffline {
+		/*
+			Surface the reason only once a server is actually considered down; a
+			single blip is not worth alarming about. A refused token counts: it
+			will not clear on its own.
+		*/
+		if snap.Status == state.StatusOffline || snap.Status == state.StatusUnauthorized {
 			game.Error = snap.LastError
 		}
 		games = append(games, game)

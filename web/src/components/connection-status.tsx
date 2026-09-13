@@ -6,6 +6,7 @@ const LABELS: Record<ServerStatus, string> = {
   online: "online",
   degraded: "not responding",
   offline: "offline",
+  unauthorized: "token refused",
   unknown: "connecting",
 };
 
@@ -13,6 +14,7 @@ const DOT: Record<ServerStatus, string> = {
   online: "bg-status-online",
   degraded: "bg-status-degraded",
   offline: "bg-status-offline",
+  unauthorized: "bg-status-unauthorized",
   unknown: "bg-status-unknown",
 };
 
@@ -20,6 +22,7 @@ const GLOW: Record<ServerStatus, string> = {
   online: "shadow-[0_0_8px_var(--status-online)]",
   degraded: "shadow-[0_0_8px_var(--status-degraded)]",
   offline: "shadow-[0_0_8px_var(--status-offline)]",
+  unauthorized: "shadow-[0_0_8px_var(--status-unauthorized)]",
   unknown: "",
 };
 

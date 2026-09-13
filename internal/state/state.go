@@ -32,6 +32,15 @@ const (
 	StatusDegraded Status = "degraded"
 	// StatusOffline means failures reached the configured threshold.
 	StatusOffline Status = "offline"
+	/*
+		StatusUnauthorized means the server is answering but refusing the token.
+
+		Worth its own state because the health signal cannot see it: serverstats
+		sits at permission level 2000 and answers with no credentials at all, so a
+		panel configured with a wrong token reported a healthy server and only
+		failed when somebody tried to do something.
+	*/
+	StatusUnauthorized Status = "unauthorized"
 )
 
 // GameClient is the slice of the sdtd client the poller needs. It exists so
@@ -56,6 +65,11 @@ type Snapshot struct {
 
 	Stats   sdtd.ServerStats
 	StatsAt time.Time
+
+	// TokenRefused records that an authenticated call was rejected, and
+	// CredentialsAt when that was last checked.
+	TokenRefused  bool
+	CredentialsAt time.Time
 
 	Version        string
 	World          string
@@ -155,6 +169,8 @@ type Poller struct {
 	infoEvery      time.Duration
 	bloodmoonEvery time.Duration
 	uptimeEvery    time.Duration
+	// A wrong token does not fix itself, so this is checked rarely.
+	credentialsEvery time.Duration
 }
 
 // New builds a Poller. It does not start polling; call Run.
@@ -176,16 +192,17 @@ func New(opts Options) *Poller {
 		now = time.Now
 	}
 	return &Poller{
-		client:         opts.Client,
-		onChange:       opts.OnStatusChange,
-		interval:       interval,
-		threshold:      threshold,
-		log:            logger,
-		now:            now,
-		snap:           Snapshot{Status: StatusUnknown},
-		infoEvery:      60 * time.Second,
-		bloodmoonEvery: 30 * time.Second,
-		uptimeEvery:    30 * time.Second,
+		client:           opts.Client,
+		onChange:         opts.OnStatusChange,
+		interval:         interval,
+		threshold:        threshold,
+		log:              logger,
+		now:              now,
+		snap:             Snapshot{Status: StatusUnknown},
+		infoEvery:        60 * time.Second,
+		bloodmoonEvery:   30 * time.Second,
+		uptimeEvery:      30 * time.Second,
+		credentialsEvery: 60 * time.Second,
 	}
 }
 
@@ -221,12 +238,22 @@ func (p *Poller) Run(ctx context.Context) {
 func (p *Poller) Tick(ctx context.Context) {
 	p.pollStats(ctx)
 
-	// The slower resources are only worth fetching when the server is
-	// answering at all; hammering a down server achieves nothing.
-	if !p.Snapshot().Reachable() {
+	// Hammering a server that is not answering achieves nothing.
+	if p.Snapshot().Status == StatusOffline {
 		return
 	}
+
 	now := p.now()
+	// Checked before the guard below, or a refused token would never be
+	// rechecked and the panel could not notice one being fixed.
+	if p.due(p.snapshotCredentialsAt(), p.credentialsEvery, now) {
+		p.pollCredentials(ctx)
+	}
+	// Everything past here needs the token the server just refused.
+	if p.Snapshot().Status == StatusUnauthorized {
+		return
+	}
+
 	if p.due(p.snapshotInfoAt(), p.infoEvery, now) {
 		p.pollInfo(ctx)
 	}
@@ -236,6 +263,45 @@ func (p *Poller) Tick(ctx context.Context) {
 	if p.due(p.snapshotBloodmoonAt(), p.bloodmoonEvery, now) {
 		p.pollBloodmoon(ctx)
 	}
+}
+
+/*
+pollCredentials asks for something the token is actually needed for.
+
+One line of the log is the cheapest endpoint that requires permission, and it
+is the only way to tell a healthy server from one that is refusing us.
+*/
+func (p *Poller) pollCredentials(ctx context.Context) {
+	_, err := p.client.Log(ctx, -1, 1)
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.snap.CredentialsAt = p.now()
+
+	was := p.snap.Status
+	switch {
+	case err == nil:
+		p.snap.TokenRefused = false
+		if was == StatusUnauthorized {
+			p.snap.Status = StatusOnline
+			p.notify(was, p.snap.Status)
+		}
+	case sdtd.IsUnauthorized(err):
+		p.snap.TokenRefused = true
+		p.snap.LastError = "the game server refused this panel's token"
+		p.snap.Status = StatusUnauthorized
+		p.log.Warn("game server refused the token", "error", err)
+		p.notify(was, p.snap.Status)
+	default:
+		// Anything else is the server being unwell, which pollStats owns.
+		p.log.Debug("credential check inconclusive", "error", err)
+	}
+}
+
+func (p *Poller) snapshotCredentialsAt() time.Time {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.snap.CredentialsAt
 }
 
 func (p *Poller) due(last time.Time, every time.Duration, now time.Time) bool {
@@ -294,12 +360,22 @@ func (p *Poller) pollStats(ctx context.Context) {
 	}
 
 	p.snap.ConsecutiveFailures = 0
-	p.snap.LastError = ""
-	p.snap.Status = StatusOnline
 	p.snap.Stats = stats
 	p.snap.StatsAt = p.now()
 
-	if was != StatusOnline {
+	/*
+		serverstats sits at permission level 2000 and answers with no credentials
+		at all, so it keeps succeeding while the token is refused. Reporting that
+		as a healthy server is the whole bug; only pollCredentials clears it.
+	*/
+	if p.snap.TokenRefused {
+		p.snap.Status = StatusUnauthorized
+	} else {
+		p.snap.LastError = ""
+		p.snap.Status = StatusOnline
+	}
+
+	if was != p.snap.Status {
 		p.log.Info("game server reachable", "previousStatus", string(was))
 	}
 	p.notify(was, p.snap.Status)
