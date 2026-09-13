@@ -80,3 +80,28 @@ export function useTeleportToPoint() {
     onError: (error: Error) => toast.error(error.message),
   });
 }
+
+/*
+Spawns at a point on the map. The height is the caller's, because the game will
+not find the ground for anything but a player.
+*/
+export function useSpawnAtPoint() {
+  const serverId = useServerId();
+  return useMutation({
+    mutationFn: ({
+      entity,
+      x,
+      y,
+      z,
+      count,
+    }: {
+      entity: string;
+      x: number;
+      y: number;
+      z: number;
+      count: number;
+    }) => api.spawn(serverId, entity, x, y, z, count),
+    onSuccess: (_r, sent) => toast.success(`Spawned ${sent.count} × ${sent.entity}`),
+    onError: (error: Error) => toast.error(error.message),
+  });
+}

@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Check, Copy, MapPin } from "lucide-react";
+import { Bug, Check, Copy, MapPin } from "lucide-react";
 import type { MapMarker } from "@/lib/api";
 import {
   ContextMenu,
@@ -19,6 +19,7 @@ interface MapMenuProps {
   at: { x: number; z: number } | null;
   players: MapMarker[];
   onTeleport: (player: MapMarker, x: number, z: number) => void;
+  onSpawn: (x: number, z: number) => void;
   children: ReactNode;
 }
 
@@ -30,12 +31,12 @@ retype.
 Teleport is offered because the game finds the ground itself — teleportplayer
 documents "use y = -1 to spawn on ground". Spawning is not: spawnentityat takes
 the same three numbers, treats -1 as a literal height and discards the entity
-while still answering "Spawned 1", so it needs a height the map does not have.
+while still answering "Spawned 1", so spawning asks for a height of its own.
 
 Leaflet calls preventDefault on contextmenu but never stopPropagation, so the
 event still reaches this trigger while the native menu stays suppressed.
 */
-export function MapMenu({ at, players, onTeleport, children }: MapMenuProps) {
+export function MapMenu({ at, players, onTeleport, onSpawn, children }: MapMenuProps) {
   const [copied, setCopied] = useState(false);
 
   const x = Math.round(at?.x ?? 0);
@@ -64,6 +65,11 @@ export function MapMenu({ at, players, onTeleport, children }: MapMenuProps) {
             ))}
           </ContextMenuSubContent>
         </ContextMenuSub>
+
+        <ContextMenuItem onSelect={() => onSpawn(x, z)}>
+          <Bug className="text-bone-faint" aria-hidden />
+          Spawn here…
+        </ContextMenuItem>
 
         <ContextMenuItem
           onSelect={(event) => {

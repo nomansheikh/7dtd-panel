@@ -1,13 +1,14 @@
 import { useMemo, useState } from "react";
 import { api, type MapLayerName, type MapMarker } from "@/lib/api";
 import { useServerId } from "@/hooks/use-servers";
-import { useTeleportToPoint } from "@/hooks/use-game-map";
+import { useSpawnAtPoint, useTeleportToPoint } from "@/hooks/use-game-map";
 import { useClaimMarkers, useMapConfig, useMovingMarkers } from "@/hooks/use-game-map";
 import { useDashboard } from "@/hooks/use-dashboard";
 import { MapCanvas } from "@/components/map/map-canvas";
 import { MapLegend } from "@/components/map/map-legend";
 import { MapPlayers } from "@/components/map/map-players";
 import { MapMenu } from "@/components/map/map-menu";
+import { MapSpawn, type SpawnAt } from "@/components/map/map-spawn";
 import { MapFreshness, MapScale } from "@/components/map/map-aside";
 import { MapEmpty, MapUnavailable } from "@/components/map/map-unavailable";
 import { MapCrosshair, MapFullscreenButton, type MapPosition } from "@/components/map/map-controls";
@@ -47,6 +48,8 @@ export function MapPage() {
   const [focus, setFocus] = useState<{ x: number; z: number; at: number } | null>(null);
   const [menuAt, setMenuAt] = useState<{ x: number; z: number } | null>(null);
   const teleport = useTeleportToPoint();
+  const spawn = useSpawnAtPoint();
+  const [spawnAt, setSpawnAt] = useState<SpawnAt | null>(null);
 
   // Full screen takes the whole page region, so the layer switches come with
   // it rather than being left behind on a screen nobody can see.
@@ -98,6 +101,7 @@ export function MapPage() {
           onTeleport={(player, x, z) =>
             teleport.mutate({ entityId: player.id, name: player.name, x, z })
           }
+          onSpawn={(x, z) => setSpawnAt(nearestHeight(markers, x, z))}
         >
           <div className="h-full w-full">
             <MapCanvas
@@ -117,6 +121,13 @@ export function MapPage() {
         </MapMenu>
         {anyTiles === false ? <MapEmpty /> : null}
         <MapCrosshair position={position} />
+        <MapSpawn
+          at={spawnAt}
+          onClose={() => setSpawnAt(null)}
+          onSpawn={(entity, y, count) =>
+            spawnAt && spawn.mutate({ entity, x: spawnAt.x, y, z: spawnAt.z, count })
+          }
+        />
         {fullscreen.supported ? (
           <MapFullscreenButton
             isFullscreen={fullscreen.isFullscreen}
@@ -142,4 +153,30 @@ export function MapPage() {
       </aside>
     </div>
   );
+}
+
+/*
+The game reports no terrain height, so the best available guess is the height of
+the nearest thing the panel can actually see standing there.
+*/
+function nearestHeight(
+  markers: Partial<Record<MapLayerName, MapMarker[]>>,
+  x: number,
+  z: number,
+): SpawnAt {
+  let closest: MapMarker | undefined;
+  let best = Infinity;
+  for (const marker of Object.values(markers).flat()) {
+    const away = (marker.x - x) ** 2 + (marker.z - z) ** 2;
+    if (away < best) {
+      best = away;
+      closest = marker;
+    }
+  }
+  return {
+    x: Math.round(x),
+    z: Math.round(z),
+    suggestedY: closest ? Math.round(closest.y) : 64,
+    heightIsGuessed: !closest,
+  };
 }
