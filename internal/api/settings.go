@@ -73,6 +73,10 @@ const (
 	startupOnly = "The server does not report this one back, so a change here could not be " +
 		"confirmed. These are the settings it reads once at startup, such as the telnet " +
 		"port: change them in the server's own config and restart."
+	configFileOnly = "The server reads this one when it starts and never looks again. It " +
+		"would accept a change here and report success, but nothing would happen and it " +
+		"would be lost on the next restart. Set it in the server's own serverconfig.xml " +
+		"and restart the server."
 )
 
 // handleSettings lists every game preference, grouped and labelled.
@@ -130,11 +134,24 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 // momentary failure should not grey out the page, and the write would report
 // its own error.
 func settable(name string, live map[string]string) bool {
+	// Checked before the console's own list, because these are exactly the
+	// ones it does report back and would still refuse to act on.
+	if settings.StartupOnly(name) {
+		return false
+	}
 	if len(live) == 0 {
 		return true
 	}
 	_, ok := live[name]
 	return ok
+}
+
+// whyReadOnly explains a refusal in the terms that let the operator act on it.
+func whyReadOnly(name string) string {
+	if settings.StartupOnly(name) {
+		return configFileOnly
+	}
+	return startupOnly
 }
 
 // overlayLive replaces each preference's value with the one the console
@@ -226,7 +243,7 @@ func worldSection(prefs sdtd.ValueSet, options []sdtd.SandboxOption, live map[st
 			row.Editable = settable(opt.Key, live)
 			row.ReadOnlyReason = ""
 			if !row.Editable {
-				row.ReadOnlyReason = startupOnly
+				row.ReadOnlyReason = whyReadOnly(opt.Key)
 			}
 			row.Type = strings.ToLower(pref.Type)
 			row.Value = decodeTyped(pref.Raw)
@@ -292,7 +309,7 @@ func serverSection(prefs sdtd.ValueSet, options []sdtd.SandboxOption, live map[s
 		}
 		row := prefRow(pref)
 		if row.Editable = settable(pref.Name, live); !row.Editable {
-			row.ReadOnlyReason = startupOnly
+			row.ReadOnlyReason = whyReadOnly(pref.Name)
 		}
 		byGroup[settings.Group(row.Group)] = append(byGroup[settings.Group(row.Group)], row)
 		section.Total++
@@ -468,7 +485,7 @@ func (s *Server) handleUpdateSetting(w http.ResponseWriter, r *http.Request) {
 		s.log.Warn("could not read the live preferences", "error", liveErr)
 	}
 	if !settable(name, live) {
-		httpx.WriteError(w, http.StatusBadRequest, startupOnly, "STARTUP_SETTING")
+		httpx.WriteError(w, http.StatusBadRequest, whyReadOnly(name), "STARTUP_SETTING")
 		return
 	}
 
